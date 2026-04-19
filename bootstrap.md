@@ -6,7 +6,13 @@ Read this entire document and execute all phases sequentially without asking for
 
 Phase 1: Initialize Directory Structure
 
-Create the following folders:
+IDEMPOTENCY RULE: Before creating any folder or file below, check if it already exists.
+  - Folders: create only if missing. Never delete or clear an existing folder.
+  - Index files: create only if the file does not already exist. Never overwrite existing index files.
+  - CLAUDE.md / .clinerules: always overwrite — these are generated artifacts, not user data.
+This makes bootstrap safe to re-run on an already-initialized workspace.
+
+Create the following folders (skip if already present):
   01_raw_inputs/
   02_nodes/
   03_indexes/
@@ -14,7 +20,7 @@ Create the following folders:
 
 ---
 
-Create the following index files in 03_indexes/:
+Create the following index files in 03_indexes/ (skip each file if it already exists):
 
 File: 03_indexes/master_index.md
   # Master Index
@@ -40,7 +46,7 @@ File: 03_indexes/input_manifest.md
   Tracks every source file ever seen in 01_raw_inputs/ and the node it produced.
   Used by "Sync graph" to detect changes between sessions.
 
-  | Source File | Node File | Date Added | Size (bytes) |
+  | Source File | Node File | Date Added | SHA-256 |
   |---|---|---|---|
 
 File: 03_indexes/query_log.md
@@ -79,6 +85,13 @@ File: 03_indexes/source_config.md
   # 7. Springer     — broad sciences and engineering
   # 8. PubMed       — biomedical and life sciences (free access)
   # 9. Semantic Scholar — cross-discipline academic search (free API)
+
+  ## API Keys (only needed for institutional sources)
+  # Add your key after the colon. Leave blank if not available.
+  # Keys are stored locally and never leave your machine except in the API call itself.
+  ieee_api_key:
+  elsevier_api_key:
+  springer_api_key:
 
   ## Custom Sources
   (none configured)
@@ -196,12 +209,17 @@ File: 03_indexes/retrieval_protocol.md
       Semantic Scholar: curl -s "https://api.semanticscholar.org/graph/v1/paper/search?query=QUERY&limit=3&fields=title,abstract,authors,year"
 
     Institutional sources (only if enabled in source_config.md — requires subscription or VPN):
-      IEEE Xplore    : curl -s "https://ieeexploreapi.ieee.org/api/v1/search/articles?querytext=QUERY&max_records=3&apikey=YOUR_API_KEY"
-      Elsevier       : curl -s "https://api.elsevier.com/content/search/sciencedirect?query=QUERY&count=3" -H "X-ELS-APIKey: YOUR_API_KEY"
-      MDPI           : curl -s "https://www.mdpi.com/search?q=QUERY&journal=all&article_type=research-article&as_subject=all&view=compact" (HTML scrape — parse titles and abstracts)
-      Springer       : curl -s "https://api.springernature.com/meta/v2/json?q=QUERY&p=3&api_key=YOUR_API_KEY"
+      IEEE Xplore    : Read ieee_api_key from source_config.md. If blank, skip.
+                       curl -s "https://ieeexploreapi.ieee.org/api/v1/search/articles?querytext=QUERY&max_records=3&apikey=KEY"
+      Elsevier       : Read elsevier_api_key from source_config.md. If blank, skip.
+                       curl -s "https://api.elsevier.com/content/search/sciencedirect?query=QUERY&count=3" -H "X-ELS-APIKey: KEY"
+      MDPI           : No key required (open access).
+                       curl -s "https://www.mdpi.com/search?q=QUERY&journal=all&article_type=research-article&as_subject=all&view=compact"
+                       (HTML scrape — parse titles and abstracts from search results)
+      Springer       : Read springer_api_key from source_config.md. If blank, skip.
+                       curl -s "https://api.springernature.com/meta/v2/json?q=QUERY&p=3&api_key=KEY"
 
-    Note: IEEE and Elsevier require API keys. If a key is not configured, skip that source silently.
+    Note: If a required API key is not configured in source_config.md, skip that source silently — do not error.
     If the user mentions they are on an institutional VPN, attempt institutional sources before DuckDuckGo.
     Extract key facts. Note source URLs.
     If auto_save_external is enabled AND findings are substantial:
@@ -379,9 +397,9 @@ Clearance assignment during ingestion:
 6. Update cluster_index.md: increment count, revise Coverage Summary if scope expands.
    If discipline is new, add a row.
 7. Add a wikilink to master_index.md under the node's discipline heading.
-8. Add a row to input_manifest.md with source filename, node filename, today's date, and file size:
-   Windows : powershell -command "(Get-Item '01_raw_inputs/FILE').Length"
-   Mac/Linux: wc -c < 01_raw_inputs/FILE
+8. Add a row to input_manifest.md with source filename, node filename, today's date, and SHA-256 hash:
+   Windows : powershell -command "(Get-FileHash '01_raw_inputs/FILE' -Algorithm SHA256).Hash"
+   Mac/Linux: shasum -a 256 01_raw_inputs/FILE | cut -d' ' -f1
 
 ## "Query the graph: [question]"
 Read 03_indexes/retrieval_protocol.md, then execute it in normal mode (budget: 8 nodes).
@@ -415,25 +433,33 @@ Step 1 — Diff (scripted — do NOT diff manually)
     Mac/Linux: /tmp/kg_sync.py
 
   Script content:
-    import os, re, json
+    import os, re, json, hashlib
     manifest_path = "03_indexes/input_manifest.md"
     raw_dir = "01_raw_inputs"
+
+    def sha256(path):
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
     manifest_files = {}
     with open(manifest_path) as f:
         for line in f:
-            m = re.match(r'\|\s*([^|]+?)\s*\|[^|]+\|[^|]+\|\s*(\d+)\s*\|', line)
+            m = re.match(r'\|\s*([^|]+?)\s*\|[^|]+\|[^|]+\|\s*([a-fA-F0-9]{64})\s*\|', line)
             if m:
-                manifest_files[m.group(1).strip()] = int(m.group(2).strip())
+                manifest_files[m.group(1).strip()] = m.group(2).strip()
     disk_files = {}
     for fname in os.listdir(raw_dir):
         fpath = os.path.join(raw_dir, fname)
         if os.path.isfile(fpath):
-            disk_files[fname] = os.path.getsize(fpath)
+            disk_files[fname] = sha256(fpath)
     result = {"NEW": [], "UPDATED": [], "DELETED": [], "UNCHANGED": []}
-    for f, sz in disk_files.items():
+    for f, h in disk_files.items():
         if f not in manifest_files:
             result["NEW"].append(f)
-        elif sz != manifest_files[f]:
+        elif h != manifest_files[f]:
             result["UPDATED"].append(f)
         else:
             result["UNCHANGED"].append(f)
@@ -455,7 +481,7 @@ Step 3 — UPDATED files
   c) Rewrite node body. Preserve filename and YAML except: update summary if core claim
      changed, set last_verified to today. Re-confirm clearance if content changed significantly.
   d) Re-scan registry for connection changes. Add new, remove stale.
-  e) Update manifest row: new size, new date.
+  e) Update manifest row: recompute SHA-256 hash, update date.
   f) Update registry row if summary or clearance changed.
 
 Step 4 — DELETED files
@@ -517,6 +543,57 @@ Step 6 — Report
 3. Update the Clearance column in the node's row in node_registry.md.
 4. Confirm the change and note any implications
    (e.g. "This node is referenced in a synthesis — you may want to review that file's clearance too.").
+
+## "Merge nodes: [node A] into [node B]"
+Combines two nodes that cover the same concept. Node B is kept; node A is deleted.
+1. Read both node files in full.
+2. Confirm they are genuinely about the same concept. If not, abort and explain.
+3. Merge content into node B:
+   - Keep whichever summary is more precise.
+   - Union the tags, keywords, assumptions, connections, and contradicts arrays.
+     Remove exact duplicates. If a connection pointed to node A from node B's list, remove it.
+   - Keep the earlier date_added. Set last_verified to today.
+   - Keep the higher clearance of the two (e.g. confidential > internal > public > external).
+   - Keep the lower confidence of the two (e.g. low overrides medium overrides high).
+   - Merge body content: deduplicate facts; preserve anything unique to node A.
+4. Find every node that references node A in connections: or contradicts:.
+   Replace [[node A]] with [[node B]] in each.
+5. Update node_registry.md: remove node A's row; update node B's row if summary or tags changed.
+6. Update input_manifest.md: remove node A's row (if it had one).
+7. Update cluster_index.md: decrement node A's discipline count if it differs from node B's.
+8. Remove node A's link from master_index.md.
+9. Delete node A's file from 02_nodes/.
+10. Confirm: "Merged [node A] into [node B]. Updated X cross-references."
+
+## "List nodes"
+Prints a compact, human-readable table of everything currently in the graph.
+Do NOT read any node files — use the registry only.
+1. Read node_registry.md.
+2. Print a table grouped by Discipline, sorted alphabetically within each group:
+
+   ### [Discipline]
+   | # | Title | Type | Clearance | Summary |
+   |---|---|---|---|---|
+   | 1 | ... | ... | ... | ... |
+
+3. After the table, print one line per discipline from cluster_index.md showing node count.
+4. Print totals: X nodes across Y disciplines.
+
+## "Show graph summary"
+High-level health and coverage snapshot. Does not read node files.
+1. Read node_registry.md and cluster_index.md.
+2. Report:
+   - Total nodes, broken down by type (research_paper, strategy, codebase, etc.)
+   - Total nodes by clearance level
+   - Discipline coverage: list each discipline and its node count
+   - Nodes not verified in the last 6 months (check last_verified from registry if present,
+     otherwise note that last_verified is not indexed and a Lint graph is needed)
+   - Any disciplines with only 1 node (potential isolation — no cross-links possible)
+3. Read query_log.md. Report:
+   - Total queries run
+   - Top 3 most-queried topics (by recurring keywords across query text column)
+   - Queries that ended with gaps (Gaps column non-empty) — potential coverage holes
+4. Print a one-paragraph plain-English summary of what the graph covers well and where it is thin.
 
 ---
 
