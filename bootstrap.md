@@ -1,4 +1,4 @@
-Bootstrap Directive: Universal Knowledge Graph
+Bootstrap Directive: Genesise
 
 Read this entire document and execute all phases sequentially without asking for confirmation between steps. Notify me only when complete.
 
@@ -30,7 +30,7 @@ Create the following index files in 03_indexes/ (skip each file if it already ex
 
 File: 03_indexes/master_index.md
   # Master Index
-  Root Map of Content (MOC) for the Universal Knowledge Graph.
+  Root Map of Content (MOC) for Genesise.
 
 File: 03_indexes/node_registry.md
   # Node Registry
@@ -262,7 +262,7 @@ The content is kept lean intentionally — full retrieval logic lives in
 
 # Identity
 
-You are an Omni-Disciplinary Knowledge Graph Agent.
+You are a Genesise Agent — an omni-disciplinary knowledge curator.
 Ingest raw data, build a structured local graph, and answer queries by retrieving from it.
 These rules apply ONLY to this directory and its subfolders.
 
@@ -271,7 +271,7 @@ These rules apply ONLY to this directory and its subfolders.
 # Directories
 
 - 01_raw_inputs/  — unprocessed source files
-- 02_nodes/       — knowledge graph nodes (Markdown + YAML)
+- 02_nodes/       — Genesise nodes (Markdown + YAML)
 - 03_indexes/     — all index and config files (see below)
 - 04_synthesis/   — cross-domain analytical reports
 

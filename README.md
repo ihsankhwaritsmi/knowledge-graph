@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧠 Knowledge Graph
+# 🧠 Genesise
 
 **A self-organizing, AI-maintained knowledge base that lives entirely on your machine.**
 
@@ -9,7 +9,7 @@ _Inspired by [Andrej Karpathy's LLM Wiki](https://gist.github.com/karpathy) conc
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Works with Cline](https://img.shields.io/badge/Works%20with-Cline-blueviolet)
 ![Works with Claude Code](https://img.shields.io/badge/Works%20with-Claude%20Code-orange)
-![No Install](https://img.shields.io/badge/Install-None%20Required-brightgreen)
+![pip install genesise](https://img.shields.io/badge/pip%20install-genesise-brightgreen)
 ![Privacy First](https://img.shields.io/badge/Privacy-Local%20Only-blue)
 
 [Quick Start](#quick-start) · [How It Works](#how-it-works) · [Commands](#commands) · [Privacy & Security](#privacy--security)
@@ -335,7 +335,7 @@ When `external` mode is enabled, every search query goes through three gates bef
 
 ## vs. Karpathy's Original LLM Wiki
 
-|               | Karpathy's LLM Wiki | This system                                      |
+|               | Karpathy's LLM Wiki | Genesise                                         |
 | ------------- | ------------------- | ------------------------------------------------ |
 | Note creation | You write manually  | Agent extracts automatically                     |
 | Structure     | Freeform Markdown   | Typed YAML schema                                |
