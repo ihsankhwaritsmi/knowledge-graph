@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kg-wiki"
+name = "genesise"
 version = "0.1.0"
 description = "CLI framework for AI-maintained local knowledge graphs"
 readme = "README.md"
@@ -17,13 +17,13 @@ dependencies = [
 ]
 
 [project.scripts]
-kg = "kg.main:app"
+gns = "genesise.main:app"
 
 [project.urls]
 Repository = "https://github.com/ihsankhwaritsmi/knowledge-graph"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/kg"]
+packages = ["src/genesise"]
 
 [tool.hatch.build.targets.wheel.shared-data]
-"src/kg/templates" = "kg/templates"
+"src/genesise/templates" = "genesise/templates"

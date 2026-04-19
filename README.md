@@ -45,7 +45,7 @@ No vector databases. No embedding models. No servers. No API keys for retrieval.
 
 | Dependency                      | Platform           | Purpose                                          | How to check                |
 | ------------------------------- | ------------------ | ------------------------------------------------ | --------------------------- |
-| **Python 3.11+**                | All                | `kg` CLI — sync, lint, rename, and other tools   | `python --version`          |
+| **Python 3.11+**                | All                | `gns` CLI — sync, lint, rename, and other tools   | `python --version`          |
 | **PowerShell 5.0+**             | Windows only       | Read `.docx`, `.xlsx` files                      | `$PSVersionTable.PSVersion` |
 | **poppler-utils** (`pdftotext`) | Linux/Mac fallback | PDF text extraction if native read fails         | `pdftotext -v`              |
 | **unzip**                       | Linux/Mac          | Read `.docx` / `.xlsx` XML                       | `unzip -v`                  |
@@ -62,14 +62,14 @@ No vector databases. No embedding models. No servers. No API keys for retrieval.
 
 ```bash
 # 1. Install the CLI
-pip install kg-wiki
+pip install genesise
 
 # 2. Clone and enter the repo
 git clone https://github.com/ihsankhwaritsmi/knowledge-graph
 cd knowledge-graph
 
 # 3. Initialize the workspace
-kg init
+gns init
 ```
 
 Then, in your agent's chat panel, run:
@@ -80,7 +80,7 @@ Read bootstrap.md and execute Phase 2 and Phase 3.
 
 The agent generates the rules engine (`CLAUDE.md` / `.clinerules`) and confirms when ready.
 
-> **Already initialized?** Re-running `kg init` is safe — it skips existing folders and index files. Re-running bootstrap Phase 2/3 regenerates only the rules files.
+> **Already initialized?** Re-running `gns init` is safe — it skips existing folders and index files. Re-running bootstrap Phase 2/3 regenerates only the rules files.
 
 **First time — ingest your files:**
 
@@ -101,16 +101,16 @@ Query the graph [deep]: What connections exist between my research notes and the
 # 1. Drop new or updated files into 01_raw_inputs/ alongside existing ones
 
 # 2. Run sync — detects changes, handles deletions, reports what needs agent attention
-kg sync
+gns sync
 
-# 3. If kg sync reports NEW or UPDATED files, tell your agent
+# 3. If gns sync reports NEW or UPDATED files, tell your agent
 Process new data
 
 # 4. Keep querying as normal
 Query the graph: How does the new paper relate to my earlier research notes?
 ```
 
-> `kg sync` uses SHA-256 hashing to detect changes — it never re-processes unchanged files, and it fully cascades deletions (removes cross-references, registry rows, and master index links) without needing the LLM.
+> `gns sync` uses SHA-256 hashing to detect changes — it never re-processes unchanged files, and it fully cascades deletions (removes cross-references, registry rows, and master index links) without needing the LLM.
 
 ---
 
@@ -189,23 +189,23 @@ Tell these to your agent in the chat panel:
 | `Compress node: [name]`              | Rewrite node body as 10-bullet list; YAML untouched                    |
 | `Set clearance: [name] to [level]`   | Update node clearance; flags affected synthesis reports                |
 | `Merge nodes: [A] into [B]`          | Combine two duplicate/overlapping nodes; cascades all cross-references |
-| `Sync graph`                         | Run `kg sync`, then process any NEW/UPDATED files with the agent       |
-| `Lint graph`                         | Run `kg lint` and report results                                       |
+| `Sync graph`                         | Run `gns sync`, then process any NEW/UPDATED files with the agent       |
+| `Lint graph`                         | Run `gns lint` and report results                                       |
 
-### CLI commands (`pip install kg-wiki`)
+### CLI commands (`pip install genesise`)
 
 Run these directly in your terminal — no LLM needed, instant:
 
 | Command                        | What it does                                                                    |
 | ------------------------------ | ------------------------------------------------------------------------------- |
-| `kg init [path]`               | Scaffold a new workspace — creates folders and all index files                  |
-| `kg sync`                      | Detect changes, cascade deletions, report NEW/UPDATED files for agent ingestion |
-| `kg lint`                      | Check YAML, table integrity, and broken WikiLinks across the whole graph        |
-| `kg list`                      | Compact table of all nodes by discipline (supports `-d` and `-c` filters)       |
-| `kg summary`                   | Health snapshot: counts, coverage, staleness, top query keywords                |
-| `kg flag-stale`                | Classify every node as STALE / AGING / CURRENT / UNKNOWN by last_verified       |
-| `kg verify <node>`             | Stamp `last_verified: today` without changing node content                      |
-| `kg rename <old> <new>`        | Rename a node and cascade every WikiLink, index row, and manifest entry         |
+| `gns init [path]`               | Scaffold a new workspace — creates folders and all index files                  |
+| `gns sync`                      | Detect changes, cascade deletions, report NEW/UPDATED files for agent ingestion |
+| `gns lint`                      | Check YAML, table integrity, and broken WikiLinks across the whole graph        |
+| `gns list`                      | Compact table of all nodes by discipline (supports `-d` and `-c` filters)       |
+| `gns summary`                   | Health snapshot: counts, coverage, staleness, top query keywords                |
+| `gns flag-stale`                | Classify every node as STALE / AGING / CURRENT / UNKNOWN by last_verified       |
+| `gns verify <node>`             | Stamp `last_verified: today` without changing node content                      |
+| `gns rename <old> <new>`        | Rename a node and cascade every WikiLink, index row, and manifest entry         |
 
 ---
 
@@ -213,7 +213,7 @@ Run these directly in your terminal — no LLM needed, instant:
 
 ```
 .
-├── src/kg/                     ← kg CLI package (pip install kg-wiki)
+├── src/kg/                     ← kg CLI package (pip install genesise)
 │   ├── engine/                 ← workspace detection, hashing, atomic writes, manifest/registry I/O
 │   └── commands/               ← init, sync, lint, list, summary, flag-stale, verify, rename
 ├── 01_raw_inputs/              ← drop your files here (gitignored)
@@ -229,7 +229,7 @@ Run these directly in your terminal — no LLM needed, instant:
 ├── 04_synthesis/               ← cross-domain reports (gitignored)
 ├── .clinerules                 ← rules engine for Cline (gitignored, generated)
 ├── CLAUDE.md                   ← rules engine for Claude Code (gitignored, generated)
-├── pyproject.toml              ← package definition for kg-wiki
+├── pyproject.toml              ← package definition for genesise
 ├── .gitignore
 └── bootstrap.md                ← one-time setup — the committed source of truth
 ```

@@ -6,11 +6,11 @@ Read this entire document and execute all phases sequentially without asking for
 
 Phase 1: Initialize Directory Structure
 
-PREFERRED: If the kg CLI is installed (`pip install kg-wiki`), run:
-  kg init
+PREFERRED: If the genesise CLI is installed (`pip install genesise`), run:
+  gns init
 This creates all folders and index files automatically, then continue to Phase 2.
 
-FALLBACK (if kg is not installed): Follow the manual steps below.
+FALLBACK (if genesise is not installed): Follow the manual steps below.
 
 IDEMPOTENCY RULE: Before creating any folder or file below, check if it already exists.
   - Folders: create only if missing. Never delete or clear an existing folder.
@@ -438,7 +438,7 @@ Use when the question is complex, cross-domain, or requires comprehensive covera
 Detects all changes in 01_raw_inputs/ since the last session.
 
 Step 1 — Run the CLI (handles diff, deletions, and broken-link scan deterministically):
-  kg sync
+  gns sync
 
   The CLI will output a report classifying each file as NEW, UPDATED, DELETED, or UNCHANGED.
   It also cascades all deletions (removes cross-references, registry rows, manifest rows,
@@ -462,7 +462,7 @@ Step 3 — UPDATED files
   f) Update registry row if summary or clearance changed.
 
 Step 4 — Report
-  Relay the kg sync output summary to the user:
+  Relay the gns sync output summary to the user:
   X new | X updated | X deleted | X unchanged | X broken links found
 
 ## "Resolve contradiction: [node A] vs [node B]"
@@ -481,7 +481,7 @@ Step 4 — Report
 
 ## "Lint graph"
 Run:
-  kg lint
+  gns lint
 
 Reports YAML errors, malformed table rows, and broken WikiLinks across the entire graph.
 Exits with a non-zero code if any issues are found — useful in CI.
@@ -524,14 +524,14 @@ Combines two nodes that cover the same concept. Node B is kept; node A is delete
 
 ## "List nodes"
 Run:
-  kg list
+  gns list
 
 Prints all nodes grouped by discipline from the registry. No node files are read.
 Supports --discipline and --clearance filters.
 
 ## "Rename node: [old name] to [new name]"
 Run:
-  kg rename [old_name] [new_name]
+  gns rename [old_name] [new_name]
 
 Renames the node file, updates the YAML title, cascades [[WikiLink]] replacements across
 all other nodes, and updates registry, manifest, and master_index atomically.
@@ -539,14 +539,14 @@ Aborts if old_name does not exist or new_name already exists (use "Merge nodes" 
 
 ## "Verify node: [node name]"
 Run:
-  kg verify [node_name]
+  gns verify [node_name]
 
 Stamps last_verified: today on the node's YAML block without touching any other content.
 Use after manually confirming a stale node is still accurate.
 
 ## "Flag stale nodes"
 Run:
-  kg flag-stale
+  gns flag-stale
 
 Reads each node's YAML block and classifies nodes as STALE (>6 months), AGING (3–6 months),
 CURRENT, or UNKNOWN. Prints a grouped report. Does not modify any files.
@@ -554,7 +554,7 @@ Use --stale-only to show only the most urgent nodes.
 
 ## "Show graph summary"
 Run:
-  kg summary
+  gns summary
 
 Prints node counts by type, discipline, and clearance; flags stale nodes; reports query log
 statistics (total queries, top keywords, gaps); and outputs a plain-English coverage assessment.

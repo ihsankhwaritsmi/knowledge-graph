@@ -2,8 +2,8 @@ import typer
 from .commands import init, sync, lint, list_nodes, flag_stale, verify, rename, summary
 
 app = typer.Typer(
-    name="kg",
-    help="Knowledge graph CLI — deterministic operations for your AI second brain.",
+    name="gns",
+    help="Genesise — deterministic CLI for your AI-maintained local knowledge graph.",
     no_args_is_help=True,
     pretty_exceptions_show_locals=False,
 )
