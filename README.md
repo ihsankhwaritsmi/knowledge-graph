@@ -75,10 +75,10 @@ Read bootstrap.md and execute the instructions.
 
 That's it. The agent builds the full workspace — folders, indexes, and rules engine — and confirms when ready.
 
-**Then:**
+**First time — ingest your files:**
 
 ```
-# 1. Drop files into 01_raw_inputs/ — anything goes
+# 1. Drop files into 01_raw_inputs/ — anything goes (PDF, Word, Excel, images, CSV, code, text)
 
 # 2. Tell your agent
 Process new data
@@ -87,6 +87,20 @@ Process new data
 Query the graph: What are the key assumptions in the papers I uploaded?
 Query the graph [deep]: What connections exist between my research notes and the dataset analysis?
 ```
+
+**Adding or updating files later:**
+
+```
+# 1. Drop new or updated files into 01_raw_inputs/ alongside existing ones
+
+# 2. Run sync — detects new, updated, and deleted files automatically
+Sync graph
+
+# 3. Keep querying as normal
+Query the graph: How does the new paper relate to my earlier research notes?
+```
+
+> `Sync graph` runs a Python diff against the manifest so it never re-processes unchanged files. New files get full node creation; updated files get their node rewritten; deleted files have their references cleaned up across the graph.
 
 ---
 
