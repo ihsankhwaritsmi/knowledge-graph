@@ -76,80 +76,114 @@ Cline builds everything. You'll get a confirmation when it's ready.
 
 ```
 .
-├── 01_raw_inputs/         # Drop your files here (never committed to git)
-├── 02_nodes/              # Generated knowledge graph nodes (never committed)
-├── 03_indexes/            # Retrieval indexes (never committed)
-│   ├── input_manifest.md  ← tracks every source file, size, and processed state
-│   ├── cluster_index.md   ← discipline-level pre-filter, keeps queries fast at scale
-│   ├── node_registry.md   ← one row per node, primary retrieval index
-│   ├── master_index.md    ← human-readable table of contents
-│   └── source_config.md   ← external source settings
-├── 04_synthesis/          # Cross-domain reports (never committed)
-├── .clinerules            # Rules engine Cline reads on every session
-├── .gitignore             # Your data never gets committed
-└── cline_bootstrap.md     # The one-time setup directive
+├── 01_raw_inputs/              # Drop your files here (never committed to git)
+├── 02_nodes/                   # Generated knowledge graph nodes (never committed)
+├── 03_indexes/                 # All index and config files (never committed)
+│   ├── retrieval_protocol.md   ← full retrieval logic, loaded on demand
+│   ├── input_manifest.md       ← source file tracking and change detection
+│   ├── query_log.md            ← append-only history of every query run
+│   ├── cluster_index.md        ← discipline-level pre-filter for large graphs
+│   ├── node_registry.md        ← one row per node, primary retrieval index
+│   ├── master_index.md         ← human-readable table of contents
+│   └── source_config.md        ← external source settings
+├── 04_synthesis/               # Cross-domain reports (never committed)
+├── .clinerules                 # Lean rules engine, loaded every session
+├── .gitignore                  # Your data never gets committed
+└── cline_bootstrap.md          # One-time setup directive
 ```
 
-Everything in `01_raw_inputs/`, `02_nodes/`, `03_indexes/`, and `04_synthesis/` is gitignored — your personal knowledge never leaves your machine.
+Everything under `01_raw_inputs/`, `02_nodes/`, `03_indexes/`, and `04_synthesis/` is gitignored — your personal knowledge never leaves your machine.
 
 ---
 
 ## Commands
 
 ### `Process new data`
-Scans `01_raw_inputs/` for new files, extracts structured knowledge into nodes, links related concepts across the graph, and updates all indexes.
+Scans `01_raw_inputs/` for new files, extracts structured knowledge into nodes, links related concepts, and updates all indexes including the manifest and query log.
 
-### `Query the graph: [your question]`
-Retrieves relevant nodes from your graph, reasons across them, and falls back to external sources if needed. Always returns a confidence label and lists exactly which sources it used.
+### `Query the graph: [question]`
+Standard query — reads up to 8 nodes. Retrieves from the local graph first, falls back to external sources if needed. Returns a confidence label, sources consulted, and any gaps.
 
 ```
-Query the graph: What are the common failure modes across the three architecture papers I uploaded?
-Query the graph: Based on my notes, what's the strongest counterargument to my current thesis?
-Query the graph: What did I learn about fermentation last month that applies to this new recipe idea?
+Query the graph: What are the common failure modes across the architecture papers I uploaded?
+Query the graph: What's the strongest counterargument to my current thesis?
+Query the graph: What did I learn about fermentation that applies to this new recipe idea?
 ```
+
+### `Query the graph [deep]: [question]`
+Same as above but reads up to 15 nodes. Use for complex, cross-domain, or comprehensive questions where breadth matters more than speed.
 
 ### `Synthesize across domains`
-Finds nodes from different disciplines and writes a report applying the principles of one to the problems of another. Adds backlinks so source nodes know they contributed.
+Finds nodes from different disciplines and writes a report applying the principles of one to the problems of another. Runs in deep mode automatically. Adds backlinks to all source nodes.
 
 ### `Sync graph`
-Run this at the start of any session where you may have changed `01_raw_inputs/` — added files, replaced a file with a newer version, or deleted something. Cline diffs the current folder against the manifest and handles each case:
-- **New file** → processes and adds a node
-- **Updated file** → re-extracts, rewrites the node, updates connections
-- **Deleted file** → removes the node, cleans up all references in other nodes
-- **Unchanged** → skipped entirely
+Run this at the start of any session where `01_raw_inputs/` may have changed. Diffs the folder against the manifest and handles every case:
+- **New** → processes and creates a node
+- **Updated** → re-extracts, rewrites the node, updates connections and `last_verified`
+- **Deleted** → removes the node, cleans up all references in other nodes
+- **Unchanged** → skipped
+- **Broken links** → scans all nodes for `[[WikiLinks]]` pointing to deleted files and reports them
+
+### `Resolve contradiction: [node A] vs [node B]`
+Reads both nodes, identifies the exact conflicting claims, searches the graph for related evidence, and writes a reasoned resolution. Classifies the conflict as outdated, contextual, or genuinely open. Updates both nodes and optionally creates a synthesis document for unresolved questions.
 
 ### `Search external: [topic]`
-Forces a search against Wikipedia, ArXiv, and DuckDuckGo regardless of local graph state. Findings can be saved as nodes tagged `[EXTERNAL]`.
+Forces a search against Wikipedia, ArXiv, and DuckDuckGo regardless of local graph state. Findings can be saved as nodes.
 
 ### `Compress node: [node name]`
-Rewrites a verbose node body as a compact bullet-point list. YAML metadata stays untouched.
+Rewrites a verbose node body as a compact bullet-point list. YAML stays untouched. Updates `last_verified`.
+
+### `Update README`
+Writes a `README.md` in the workspace root — a living snapshot of what's in the graph: disciplines, all nodes, all sources, synthesis reports, and recent queries.
 
 ---
 
 ## How Retrieval Works
 
-Queries use a 7-step protocol. No embeddings, no vector math — the LLM does the relevance judgment.
+The retrieval logic lives in `03_indexes/retrieval_protocol.md` and is only loaded when a query runs — keeping `.clinerules` lean for every other session. No embeddings, no vector math — the LLM does the relevance judgment.
 
-**Step 0 — HyDE (Hypothetical Document Expansion)**
-Before reading any file, Cline internally drafts what the ideal answer node's summary would say. This becomes a second match signal alongside your raw keywords — finding nodes that are semantically relevant even when exact words don't match.
+**Step 0 — HyDE**
+Generates a hypothetical one-sentence summary of what the ideal answer node would say. Used as a second match signal alongside raw keywords — surfaces nodes that are semantically relevant even when exact words don't match.
 
 **Step 1 — Cluster Pre-filter**
-Reads `cluster_index.md` — a small table with one row per discipline and a 2–3 sentence description of what that cluster covers. Narrows the search to 1–3 relevant disciplines before scanning the full registry. At 300 nodes, this means scoring 20 rows instead of 300.
+Reads `cluster_index.md` — one row per discipline with a 2–3 sentence coverage summary. Narrows candidates to 1–3 disciplines before touching the full registry. At 300 nodes this means scoring ~20 rows instead of 300.
 
 **Step 2 — Registry Scan**
 Reads `node_registry.md` and scores each row against both the raw query and the HyDE summary. Assesses confidence: sufficient / partial / insufficient.
 
 **Step 3 — Tiered Node Read**
-Reads only the YAML block (lines 1–25) of each candidate first. Opens the full file only if the summary confirms relevance. Hard cap: 8 node files per query.
+Reads the YAML block only (lines 1–30) for each candidate — summary, tags, and the `keywords` field. Full file read only if confirmed relevant. Budget: 8 nodes normal, 15 nodes deep mode. Nodes with a stale `last_verified` date are flagged in the answer.
 
 **Step 4 — Connection Traversal**
 Follows `connections:` and `contradicts:` links up to 2 hops — only when the linked node's registry row also scores relevant.
 
-**Step 5 — External Search** (partial or insufficient only)
-Hits Wikipedia, ArXiv, and DuckDuckGo via `curl` — no API keys needed. Fires two queries: one from your keywords, one from the HyDE summary. Significant findings are optionally auto-saved as low-confidence nodes.
+**Step 5 — External Search**
+Triggered when confidence is partial or insufficient. Hits Wikipedia, ArXiv, and DuckDuckGo via `curl` with two queries: one from raw keywords, one from the HyDE summary. Significant findings auto-saved as `confidence: low` nodes.
 
-**Step 6 — Structured Answer**
-Every response: confidence label · concise answer · sources consulted · gaps identified.
+**Step 6 — Answer + Log**
+Returns: confidence label · answer · sources · gaps. Appends one row to `query_log.md` for every query run.
+
+---
+
+## Node Structure
+
+Every node is a Markdown file with a YAML header:
+
+```yaml
+title: ""
+type: ""          # research_paper | strategy | codebase | transcript | abstract_concept | dataset | synthesis | external
+discipline: ""
+tags: []          # broad categories
+keywords: []      # specific terms, entities, acronyms — secondary retrieval signal
+summary: ""       # one sentence, mandatory
+assumptions: []
+connections: []   # [[WikiLink]] to related nodes
+contradicts: []   # [[WikiLink]] to conflicting nodes
+source: ""
+confidence: ""    # high | medium | low
+date_added: ""    # set once, never changed
+last_verified: "" # updated whenever the node is confirmed current
+```
 
 ---
 
