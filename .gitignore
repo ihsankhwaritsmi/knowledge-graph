@@ -9,6 +9,15 @@
 .clinerules
 CLAUDE.md
 
+# Python package artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+.uv/
+
 # OS files
 .DS_Store
 Thumbs.db
