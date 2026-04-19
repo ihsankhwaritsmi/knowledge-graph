@@ -6,6 +6,12 @@ Read this entire document and execute all phases sequentially without asking for
 
 Phase 1: Initialize Directory Structure
 
+PREFERRED: If the kg CLI is installed (`pip install kg-wiki`), run:
+  kg init
+This creates all folders and index files automatically, then continue to Phase 2.
+
+FALLBACK (if kg is not installed): Follow the manual steps below.
+
 IDEMPOTENCY RULE: Before creating any folder or file below, check if it already exists.
   - Folders: create only if missing. Never delete or clear an existing folder.
   - Index files: create only if the file does not already exist. Never overwrite existing index files.
@@ -431,59 +437,22 @@ Use when the question is complex, cross-domain, or requires comprehensive covera
 ## "Sync graph"
 Detects all changes in 01_raw_inputs/ since the last session.
 
-Step 1 — Diff (scripted — do NOT diff manually)
-  Write the following Python script to a temporary file and execute it.
-  Reading the raw directory listing and diffing by eye guarantees hallucinated diffs
-  at scale; the script is deterministic and costs zero API tokens.
+Step 1 — Run the CLI (handles diff, deletions, and broken-link scan deterministically):
+  kg sync
 
-  Temp file path:
-    Windows : %TEMP%\kg_sync.py
-    Mac/Linux: /tmp/kg_sync.py
+  The CLI will output a report classifying each file as NEW, UPDATED, DELETED, or UNCHANGED.
+  It also cascades all deletions (removes cross-references, registry rows, manifest rows,
+  master_index links, and decrements cluster counts) and reports broken WikiLinks.
+  Read the output — it tells you exactly which files need agent action.
 
-  Script content:
-    import os, re, json, hashlib
-    manifest_path = "03_indexes/input_manifest.md"
-    raw_dir = "01_raw_inputs"
-
-    def sha256(path):
-        h = hashlib.sha256()
-        with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(65536), b""):
-                h.update(chunk)
-        return h.hexdigest()
-
-    manifest_files = {}
-    with open(manifest_path) as f:
-        for line in f:
-            m = re.match(r'\|\s*([^|]+?)\s*\|[^|]+\|[^|]+\|\s*([a-fA-F0-9]{64})\s*\|', line)
-            if m:
-                manifest_files[m.group(1).strip()] = m.group(2).strip()
-    disk_files = {}
-    for fname in os.listdir(raw_dir):
-        fpath = os.path.join(raw_dir, fname)
-        if os.path.isfile(fpath):
-            disk_files[fname] = sha256(fpath)
-    result = {"NEW": [], "UPDATED": [], "DELETED": [], "UNCHANGED": []}
-    for f, h in disk_files.items():
-        if f not in manifest_files:
-            result["NEW"].append(f)
-        elif h != manifest_files[f]:
-            result["UPDATED"].append(f)
-        else:
-            result["UNCHANGED"].append(f)
-    for f in manifest_files:
-        if f not in disk_files:
-            result["DELETED"].append(f)
-    print(json.dumps(result, indent=2))
-
-  Execute the script. Read the JSON output.
-  Delete the temp script after reading.
-  Classify each file based on the JSON keys: NEW, UPDATED, DELETED, UNCHANGED.
+  If kg is not installed, fall back to the manual scripted diff described in the
+  project's git history or re-run bootstrap to reinstall.
 
 Step 2 — NEW files
-  Run "Process new data" for each.
+  Run "Process new data" for each file listed as NEW.
 
 Step 3 — UPDATED files
+  For each file listed as UPDATED:
   a) Re-extract content using File Reading Protocol.
   b) Read the existing node. Re-run Extraction Protocol.
   c) Rewrite node body. Preserve filename and YAML except: update summary if core claim
@@ -492,22 +461,8 @@ Step 3 — UPDATED files
   e) Update manifest row: recompute SHA-256 hash, update date.
   f) Update registry row if summary or clearance changed.
 
-Step 4 — DELETED files
-  a) Read the node listed in the manifest.
-  b) Find all other nodes referencing it in connections: or contradicts:.
-     Remove those references. Add inline note: "(source deleted: FILENAME)".
-  c) Delete the node file from 02_nodes/.
-  d) Remove its row from node_registry.md.
-  e) Remove its row from input_manifest.md.
-  f) Decrement its discipline count in cluster_index.md.
-  g) Remove its link from master_index.md.
-
-Step 5 — Broken Link Scan
-  Scan every node in 02_nodes/. For each [[WikiLink]] in connections: and contradicts:,
-  verify a corresponding .md file exists in 02_nodes/. Collect all broken links.
-  Report: "[node file] → [[missing link]]". Do not auto-delete.
-
-Step 6 — Report
+Step 4 — Report
+  Relay the kg sync output summary to the user:
   X new | X updated | X deleted | X unchanged | X broken links found
 
 ## "Resolve contradiction: [node A] vs [node B]"
@@ -525,18 +480,12 @@ Step 6 — Report
 7. Update last_verified on both nodes to today.
 
 ## "Lint graph"
-1. Check YAML frontmatter in every file in 02_nodes/:
-   - Verify the block opens with --- and closes with ---
-   - Verify mandatory fields (summary, date_added, clearance) are present and non-empty
-   - Report any file that fails as: "[file] — broken YAML: [reason]"
-2. Check node_registry.md and cluster_index.md:
-   - Count pipe-delimited columns per row; flag any row whose column count differs from the header row
-   - Report as: "[index file] row [N] — malformed table row"
-3. Scan every node in 02_nodes/ for [[WikiLinks]] in connections: and contradicts:
-   - Verify a corresponding .md file exists in 02_nodes/ for each link
-   - Report orphans as: "[node file] → [[missing link]]"
-4. Print a summary: X nodes checked | X YAML errors | X table errors | X broken links
-   Do not auto-fix anything — report only.
+Run:
+  kg lint
+
+Reports YAML errors, malformed table rows, and broken WikiLinks across the entire graph.
+Exits with a non-zero code if any issues are found — useful in CI.
+Do not auto-fix anything — report only.
 
 ## "Compress node: [node name]"
 1. Read the node file.
@@ -574,84 +523,41 @@ Combines two nodes that cover the same concept. Node B is kept; node A is delete
 10. Confirm: "Merged [node A] into [node B]. Updated X cross-references."
 
 ## "List nodes"
-Prints a compact, human-readable table of everything currently in the graph.
-Do NOT read any node files — use the registry only.
-1. Read node_registry.md.
-2. Print a table grouped by Discipline, sorted alphabetically within each group:
+Run:
+  kg list
 
-   ### [Discipline]
-   | # | Title | Type | Clearance | Summary |
-   |---|---|---|---|---|
-   | 1 | ... | ... | ... | ... |
-
-3. After the table, print one line per discipline from cluster_index.md showing node count.
-4. Print totals: X nodes across Y disciplines.
+Prints all nodes grouped by discipline from the registry. No node files are read.
+Supports --discipline and --clearance filters.
 
 ## "Rename node: [old name] to [new name]"
-Safely renames a node and cascades the change to all indexes and cross-references.
-1. Confirm a file named [old name].md exists in 02_nodes/. If not, abort and report.
-2. Confirm no file named [new name].md already exists in 02_nodes/. If it does, abort —
-   use "Merge nodes" instead.
-3. Read the node file. Update the title: field in the YAML block to [new name].
-4. Write the updated content to [new name].md in 02_nodes/.
-5. Scan every other node in 02_nodes/ for [[old name]] in connections: and contradicts:.
-   Replace each occurrence with [[new name]]. Use atomic writes (write to .tmp, verify, rename).
-6. Update node_registry.md: replace the File column value and the Title column value in the node's row.
-7. Update input_manifest.md: replace the Node File column value in the node's row (if present).
-8. Update master_index.md: replace the wikilink [[old name]] with [[new name]].
-9. Delete [old name].md from 02_nodes/.
-10. Confirm: "Renamed [[old name]] → [[new name]]. Updated X cross-references."
+Run:
+  kg rename [old_name] [new_name]
+
+Renames the node file, updates the YAML title, cascades [[WikiLink]] replacements across
+all other nodes, and updates registry, manifest, and master_index atomically.
+Aborts if old_name does not exist or new_name already exists (use "Merge nodes" instead).
 
 ## "Verify node: [node name]"
-Stamps last_verified to today without changing any content. Use after manually confirming a node is still accurate.
-1. Read lines 1–30 of the node file (YAML block only).
-2. Update the last_verified: field to today's date.
-3. Write the change back using the atomic write protocol.
-4. Update the node's row in node_registry.md if last_verified is a column there.
-5. Confirm: "[[node name]] marked as verified on [today]."
+Run:
+  kg verify [node_name]
+
+Stamps last_verified: today on the node's YAML block without touching any other content.
+Use after manually confirming a stale node is still accurate.
 
 ## "Flag stale nodes"
-Audits the entire graph for nodes that have not been verified recently.
-Does NOT read node files — works from the registry only.
-1. Read node_registry.md. For each row, check the last_verified date if it is present in the registry.
-   Note: last_verified is stored in node YAML, not the registry by default. If the registry does
-   not have a last_verified column, read each node's YAML block (lines 1–30 only) to get the date.
-2. Classify each node:
-   STALE    : last_verified is more than 6 months ago (before [today minus 6 months])
-   AGING    : last_verified is 3–6 months ago
-   CURRENT  : last_verified is within 3 months
-   UNKNOWN  : last_verified field is missing or empty
-3. Print a report grouped by status:
+Run:
+  kg flag-stale
 
-   ### Stale (> 6 months) — X nodes
-   | File | Title | Discipline | Last Verified |
-   |---|---|---|---|
-
-   ### Aging (3–6 months) — X nodes
-   | File | Title | Discipline | Last Verified |
-
-   ### Unknown (no date) — X nodes
-   | File | Title | Discipline |
-
-4. Print totals and a one-line recommendation:
-   e.g. "Run 'Sync graph' to re-verify UPDATED files, or open each stale node and confirm accuracy."
-5. Do NOT modify any files. Report only.
+Reads each node's YAML block and classifies nodes as STALE (>6 months), AGING (3–6 months),
+CURRENT, or UNKNOWN. Prints a grouped report. Does not modify any files.
+Use --stale-only to show only the most urgent nodes.
 
 ## "Show graph summary"
-High-level health and coverage snapshot. Does not read node files.
-1. Read node_registry.md and cluster_index.md.
-2. Report:
-   - Total nodes, broken down by type (research_paper, strategy, codebase, etc.)
-   - Total nodes by clearance level
-   - Discipline coverage: list each discipline and its node count
-   - Nodes not verified in the last 6 months (check last_verified from registry if present,
-     otherwise note that last_verified is not indexed and a Lint graph is needed)
-   - Any disciplines with only 1 node (potential isolation — no cross-links possible)
-3. Read query_log.md. Report:
-   - Total queries run
-   - Top 3 most-queried topics (by recurring keywords across query text column)
-   - Queries that ended with gaps (Gaps column non-empty) — potential coverage holes
-4. Print a one-paragraph plain-English summary of what the graph covers well and where it is thin.
+Run:
+  kg summary
+
+Prints node counts by type, discipline, and clearance; flags stale nodes; reports query log
+statistics (total queries, top keywords, gaps); and outputs a plain-English coverage assessment.
 
 ---
 

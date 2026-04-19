@@ -43,14 +43,12 @@ No vector databases. No embedding models. No servers. No API keys for retrieval.
 
 ## System Requirements
 
-No Python packages, npm modules, or servers needed. The system uses tools already present on your OS.
-
-| Dependency                      | Platform           | Purpose                                  | How to check                |
-| ------------------------------- | ------------------ | ---------------------------------------- | --------------------------- |
-| **Python 3**                    | All                | `Sync graph` scripted diff               | `python --version`          |
-| **PowerShell 5.0+**             | Windows only       | Read `.docx`, `.xlsx`; get file sizes    | `$PSVersionTable.PSVersion` |
-| **poppler-utils** (`pdftotext`) | Linux/Mac fallback | PDF text extraction if native read fails | `pdftotext -v`              |
-| **unzip**                       | Linux/Mac          | Read `.docx` / `.xlsx` XML               | `unzip -v`                  |
+| Dependency                      | Platform           | Purpose                                          | How to check                |
+| ------------------------------- | ------------------ | ------------------------------------------------ | --------------------------- |
+| **Python 3.11+**                | All                | `kg` CLI — sync, lint, rename, and other tools   | `python --version`          |
+| **PowerShell 5.0+**             | Windows only       | Read `.docx`, `.xlsx` files                      | `$PSVersionTable.PSVersion` |
+| **poppler-utils** (`pdftotext`) | Linux/Mac fallback | PDF text extraction if native read fails         | `pdftotext -v`              |
+| **unzip**                       | Linux/Mac          | Read `.docx` / `.xlsx` XML                       | `unzip -v`                  |
 
 > **Windows users:** PowerShell ships with Windows 10/11 — no action needed.
 > **Linux/Mac users:** `sudo apt install poppler-utils` or `brew install poppler` for PDF fallback.
@@ -63,19 +61,26 @@ No Python packages, npm modules, or servers needed. The system uses tools alread
 **Prerequisites:** [Cline](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev) (VS Code) or [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (CLI), with any LLM API key configured.
 
 ```bash
+# 1. Install the CLI
+pip install kg-wiki
+
+# 2. Clone and enter the repo
 git clone https://github.com/ihsankhwaritsmi/knowledge-graph
 cd knowledge-graph
+
+# 3. Initialize the workspace
+kg init
 ```
 
 Then, in your agent's chat panel, run:
 
 ```
-Read bootstrap.md and execute the instructions.
+Read bootstrap.md and execute Phase 2 and Phase 3.
 ```
 
-That's it. The agent builds the full workspace — folders, indexes, and rules engine — and confirms when ready.
+The agent generates the rules engine (`CLAUDE.md` / `.clinerules`) and confirms when ready.
 
-> **Already initialized?** Re-running bootstrap on an existing workspace is safe — the agent will create any missing folders and index files but will not overwrite existing ones. Your nodes and indexes are preserved.
+> **Already initialized?** Re-running `kg init` is safe — it skips existing folders and index files. Re-running bootstrap Phase 2/3 regenerates only the rules files.
 
 **First time — ingest your files:**
 
@@ -92,17 +97,20 @@ Query the graph [deep]: What connections exist between my research notes and the
 
 **Adding or updating files later:**
 
-```
+```bash
 # 1. Drop new or updated files into 01_raw_inputs/ alongside existing ones
 
-# 2. Run sync — detects new, updated, and deleted files automatically
-Sync graph
+# 2. Run sync — detects changes, handles deletions, reports what needs agent attention
+kg sync
 
-# 3. Keep querying as normal
+# 3. If kg sync reports NEW or UPDATED files, tell your agent
+Process new data
+
+# 4. Keep querying as normal
 Query the graph: How does the new paper relate to my earlier research notes?
 ```
 
-> `Sync graph` runs a Python diff against the manifest so it never re-processes unchanged files. New files get full node creation; updated files get their node rewritten; deleted files have their references cleaned up across the graph.
+> `kg sync` uses SHA-256 hashing to detect changes — it never re-processes unchanged files, and it fully cascades deletions (removes cross-references, registry rows, and master index links) without needing the LLM.
 
 ---
 
@@ -166,24 +174,38 @@ Confidence is assessed after Step 2 and determines the path:
 
 ## Commands
 
-| Command                              | What it does                                                                   |
-| ------------------------------------ | ------------------------------------------------------------------------------ |
-| `Process new data`                   | Ingest files from `01_raw_inputs/`, create nodes, update all indexes           |
-| `Query the graph: [question]`        | Retrieve and reason — up to 8 nodes, gap-fill if needed                        |
-| `Query the graph [deep]: [question]` | Same, up to 15 nodes — use for complex cross-domain questions                  |
-| `Synthesize across domains`          | Cross-discipline report; inherits highest source clearance                     |
-| `Sync graph`                         | Scripted Python diff vs manifest — handles new, updated, deleted, broken links |
-| `Lint graph`                         | Check all nodes for broken YAML, malformed table rows, and orphaned WikiLinks  |
-| `Resolve contradiction: [A] vs [B]`  | Read both nodes, classify conflict, write resolution                           |
-| `Search external: [topic]`           | Force web search (requires `gap_fill_mode: external` in config)                |
-| `Compress node: [name]`              | Rewrite node body as 10-bullet list; YAML untouched                            |
-| `Set clearance: [name] to [level]`   | Update node clearance; flags affected synthesis reports                        |
-| `Merge nodes: [A] into [B]`          | Combine two duplicate/overlapping nodes; cascades all cross-references         |
-| `Rename node: [old] to [new]`        | Rename a node and update every WikiLink, index row, and manifest entry         |
-| `Flag stale nodes`                   | Audit entire graph for unverified nodes; classifies as stale / aging / unknown |
-| `Verify node: [name]`                | Stamp `last_verified: today` on a node without changing its content            |
-| `List nodes`                         | Compact table of all nodes grouped by discipline — no node files read          |
-| `Show graph summary`                 | Health snapshot: node counts, coverage gaps, stale nodes, top queries          |
+### Agent commands (require LLM)
+
+Tell these to your agent in the chat panel:
+
+| Command                              | What it does                                                           |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| `Process new data`                   | Ingest files from `01_raw_inputs/`, create nodes, update all indexes   |
+| `Query the graph: [question]`        | Retrieve and reason — up to 8 nodes, gap-fill if needed                |
+| `Query the graph [deep]: [question]` | Same, up to 15 nodes — use for complex cross-domain questions          |
+| `Synthesize across domains`          | Cross-discipline report; inherits highest source clearance             |
+| `Resolve contradiction: [A] vs [B]` | Read both nodes, classify conflict, write resolution                   |
+| `Search external: [topic]`           | Force web search (requires `gap_fill_mode: external` in config)        |
+| `Compress node: [name]`              | Rewrite node body as 10-bullet list; YAML untouched                    |
+| `Set clearance: [name] to [level]`   | Update node clearance; flags affected synthesis reports                |
+| `Merge nodes: [A] into [B]`          | Combine two duplicate/overlapping nodes; cascades all cross-references |
+| `Sync graph`                         | Run `kg sync`, then process any NEW/UPDATED files with the agent       |
+| `Lint graph`                         | Run `kg lint` and report results                                       |
+
+### CLI commands (`pip install kg-wiki`)
+
+Run these directly in your terminal — no LLM needed, instant:
+
+| Command                        | What it does                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------- |
+| `kg init [path]`               | Scaffold a new workspace — creates folders and all index files                  |
+| `kg sync`                      | Detect changes, cascade deletions, report NEW/UPDATED files for agent ingestion |
+| `kg lint`                      | Check YAML, table integrity, and broken WikiLinks across the whole graph        |
+| `kg list`                      | Compact table of all nodes by discipline (supports `-d` and `-c` filters)       |
+| `kg summary`                   | Health snapshot: counts, coverage, staleness, top query keywords                |
+| `kg flag-stale`                | Classify every node as STALE / AGING / CURRENT / UNKNOWN by last_verified       |
+| `kg verify <node>`             | Stamp `last_verified: today` without changing node content                      |
+| `kg rename <old> <new>`        | Rename a node and cascade every WikiLink, index row, and manifest entry         |
 
 ---
 
@@ -191,6 +213,9 @@ Confidence is assessed after Step 2 and determines the path:
 
 ```
 .
+├── src/kg/                     ← kg CLI package (pip install kg-wiki)
+│   ├── engine/                 ← workspace detection, hashing, atomic writes, manifest/registry I/O
+│   └── commands/               ← init, sync, lint, list, summary, flag-stale, verify, rename
 ├── 01_raw_inputs/              ← drop your files here (gitignored)
 ├── 02_nodes/                   ← generated knowledge nodes (gitignored)
 ├── 03_indexes/                 ← retrieval indexes and config (gitignored)
@@ -204,11 +229,12 @@ Confidence is assessed after Step 2 and determines the path:
 ├── 04_synthesis/               ← cross-domain reports (gitignored)
 ├── .clinerules                 ← rules engine for Cline (gitignored, generated)
 ├── CLAUDE.md                   ← rules engine for Claude Code (gitignored, generated)
+├── pyproject.toml              ← package definition for kg-wiki
 ├── .gitignore
 └── bootstrap.md                ← one-time setup — the committed source of truth
 ```
 
-> All user data is gitignored. `.clinerules` and `CLAUDE.md` are generated artifacts — `bootstrap.md` is the only file that needs to be committed.
+> All user data is gitignored. `.clinerules` and `CLAUDE.md` are generated artifacts — `bootstrap.md` and `src/` are the only things that need to be committed.
 
 ---
 
