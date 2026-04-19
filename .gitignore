@@ -1,0 +1,17 @@
+# Knowledge graph data — never commit user content
+01_raw_inputs/
+02_nodes/
+03_indexes/
+04_synthesis/
+
+# Generated rules engine (created by bootstrap, may contain local paths)
+.clinerules
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/settings.json
+*.swp
+*.swo
