@@ -1,6 +1,6 @@
-Cline Bootstrap Directive: Universal Knowledge Graph
+Bootstrap Directive: Universal Knowledge Graph
 
-@Cline, read this entire document and execute all phases sequentially without asking for confirmation between steps. Notify me only when complete.
+Read this entire document and execute all phases sequentially without asking for confirmation between steps. Notify me only when complete.
 
 ---
 
@@ -72,7 +72,7 @@ Create the retrieval protocol file (loaded on demand, not on every session):
 File: 03_indexes/retrieval_protocol.md
 
   # Retrieval Protocol
-  Loaded by .clinerules (Cline) or CLAUDE.md (Claude Code) when executing any query or synthesis command.
+  Loaded on demand when executing any query or synthesis command.
 
   ## Step 0 — HyDE (Hypothetical Document Expansion)
   Before touching any index, internally generate:
@@ -145,11 +145,15 @@ File: 03_indexes/retrieval_protocol.md
 
 Phase 2: Generate the Rules Engine
 
-Create .clinerules in the workspace root with exactly the content below.
-This file is kept lean intentionally — it is loaded every session.
-Full retrieval logic lives in 03_indexes/retrieval_protocol.md and is loaded on demand.
+Create two files in the workspace root with exactly the content below:
+  - .clinerules  (read automatically by Cline)
+  - CLAUDE.md    (read automatically by Claude Code)
 
----BEGIN .clinerules---
+Both files must have identical content. This ensures the system works with either tool.
+The content is kept lean intentionally — full retrieval logic lives in
+03_indexes/retrieval_protocol.md and is loaded on demand.
+
+---BEGIN RULES---
 
 # Identity
 
@@ -214,7 +218,7 @@ Plain text (read directly):
   .py .js .ts .jsx .tsx .rs .go .java .c .cpp .cs and any other code file
 
 PDFs (.pdf):
-  Use read_file directly. Claude and GPT-4V can read PDFs natively.
+  Use read_file directly. Claude can read PDFs natively.
   If unreadable: notify the user and ask them to paste key sections.
 
 Word (.docx .odt):
@@ -353,19 +357,10 @@ Step 6 — Report
 - Prefer the registry summary over re-reading a node already read this session.
 - retrieval_protocol.md is only loaded when executing Query, Synthesize, or Resolve commands.
 
----END .clinerules---
+---END RULES---
 
 ---
 
-Phase 3: Create CLAUDE.md for Claude Code compatibility
-
-Create a file named CLAUDE.md in the root of this workspace.
-Write exactly the same content as .clinerules into it.
-Claude Code reads CLAUDE.md the same way Cline reads .clinerules —
-both files are identical so the system works with either tool.
-
----
-
-Phase 4: Finalize
+Phase 3: Finalize
 
 Confirm the workspace is ready. List all files and folders created.
