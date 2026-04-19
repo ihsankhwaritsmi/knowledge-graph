@@ -388,16 +388,24 @@ Clearance assignment during ingestion:
 ## "Process new data"
 1. Scan 01_raw_inputs/. Cross-reference input_manifest.md to find unprocessed files.
 2. Extract text using the File Reading Protocol.
-3. Write a node in 02_nodes/ per the Node Standard.
+3. Duplicate check — before creating a node, scan node_registry.md for potential overlaps:
+   a) Run: grep -i "CORE_KEYWORD" 03_indexes/node_registry.md for 2–3 key terms from the new file.
+   b) If 1 or more registry rows match on title, tags, or summary with high semantic overlap:
+      - Report: "Possible duplicate: [new file] closely resembles [[existing node]] (summary: ...)."
+      - Ask the user: "Create a new node anyway, or merge into the existing one?"
+      - If merge: run "Merge nodes" protocol. Stop here.
+      - If new node: proceed, and add a connections: link to the similar node in both directions.
+   c) If no close matches: proceed without interruption.
+4. Write a node in 02_nodes/ per the Node Standard.
    Set date_added and last_verified to today's date.
    Assign clearance based on the Extraction Protocol guidance. Ask if uncertain.
-4. Scan registry for concept overlaps. Update connections: in both nodes.
+5. Scan registry for concept overlaps. Update connections: in both nodes.
    Update contradicts: on both sides if there is a factual conflict.
-5. Add one row to node_registry.md (include the Clearance column).
-6. Update cluster_index.md: increment count, revise Coverage Summary if scope expands.
+6. Add one row to node_registry.md (include the Clearance column).
+7. Update cluster_index.md: increment count, revise Coverage Summary if scope expands.
    If discipline is new, add a row.
-7. Add a wikilink to master_index.md under the node's discipline heading.
-8. Add a row to input_manifest.md with source filename, node filename, today's date, and SHA-256 hash:
+8. Add a wikilink to master_index.md under the node's discipline heading.
+9. Add a row to input_manifest.md with source filename, node filename, today's date, and SHA-256 hash:
    Windows : powershell -command "(Get-FileHash '01_raw_inputs/FILE' -Algorithm SHA256).Hash"
    Mac/Linux: shasum -a 256 01_raw_inputs/FILE | cut -d' ' -f1
 
@@ -578,6 +586,56 @@ Do NOT read any node files — use the registry only.
 
 3. After the table, print one line per discipline from cluster_index.md showing node count.
 4. Print totals: X nodes across Y disciplines.
+
+## "Rename node: [old name] to [new name]"
+Safely renames a node and cascades the change to all indexes and cross-references.
+1. Confirm a file named [old name].md exists in 02_nodes/. If not, abort and report.
+2. Confirm no file named [new name].md already exists in 02_nodes/. If it does, abort —
+   use "Merge nodes" instead.
+3. Read the node file. Update the title: field in the YAML block to [new name].
+4. Write the updated content to [new name].md in 02_nodes/.
+5. Scan every other node in 02_nodes/ for [[old name]] in connections: and contradicts:.
+   Replace each occurrence with [[new name]]. Use atomic writes (write to .tmp, verify, rename).
+6. Update node_registry.md: replace the File column value and the Title column value in the node's row.
+7. Update input_manifest.md: replace the Node File column value in the node's row (if present).
+8. Update master_index.md: replace the wikilink [[old name]] with [[new name]].
+9. Delete [old name].md from 02_nodes/.
+10. Confirm: "Renamed [[old name]] → [[new name]]. Updated X cross-references."
+
+## "Verify node: [node name]"
+Stamps last_verified to today without changing any content. Use after manually confirming a node is still accurate.
+1. Read lines 1–30 of the node file (YAML block only).
+2. Update the last_verified: field to today's date.
+3. Write the change back using the atomic write protocol.
+4. Update the node's row in node_registry.md if last_verified is a column there.
+5. Confirm: "[[node name]] marked as verified on [today]."
+
+## "Flag stale nodes"
+Audits the entire graph for nodes that have not been verified recently.
+Does NOT read node files — works from the registry only.
+1. Read node_registry.md. For each row, check the last_verified date if it is present in the registry.
+   Note: last_verified is stored in node YAML, not the registry by default. If the registry does
+   not have a last_verified column, read each node's YAML block (lines 1–30 only) to get the date.
+2. Classify each node:
+   STALE    : last_verified is more than 6 months ago (before [today minus 6 months])
+   AGING    : last_verified is 3–6 months ago
+   CURRENT  : last_verified is within 3 months
+   UNKNOWN  : last_verified field is missing or empty
+3. Print a report grouped by status:
+
+   ### Stale (> 6 months) — X nodes
+   | File | Title | Discipline | Last Verified |
+   |---|---|---|---|
+
+   ### Aging (3–6 months) — X nodes
+   | File | Title | Discipline | Last Verified |
+
+   ### Unknown (no date) — X nodes
+   | File | Title | Discipline |
+
+4. Print totals and a one-line recommendation:
+   e.g. "Run 'Sync graph' to re-verify UPDATED files, or open each stale node and confirm accuracy."
+5. Do NOT modify any files. Report only.
 
 ## "Show graph summary"
 High-level health and coverage snapshot. Does not read node files.
