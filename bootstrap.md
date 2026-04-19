@@ -24,8 +24,8 @@ File: 03_indexes/node_registry.md
   # Node Registry
   One row per node. Primary retrieval index — read this on every query.
 
-  | File | Title | Type | Discipline | Tags | Summary |
-  |---|---|---|---|---|---|
+  | File | Title | Type | Discipline | Clearance | Tags | Summary |
+  |---|---|---|---|---|---|---|
 
 File: 03_indexes/cluster_index.md
   # Discipline Cluster Index
@@ -52,12 +52,20 @@ File: 03_indexes/query_log.md
   |---|---|---|---|---|---|
 
 File: 03_indexes/source_config.md
-  # External Source Configuration
+  # Source & Gap-Fill Configuration
 
-  external_search: enabled
+  ## Gap-Fill Mode
+  # Controls what happens when the local graph has insufficient coverage.
+  # Options:
+  #   parametric — use the LLM's own trained knowledge to fill the gap (default, zero leakage risk)
+  #   external   — search external sources (requires explicit opt-in; see security rules below)
+  #   none       — report the gap only, do not attempt to fill it
+  gap_fill_mode: parametric
+
+  ## External Search (only applies when gap_fill_mode: external)
   auto_save_external: enabled
 
-  ## Sources (priority order)
+  ## External Sources (priority order, only used when gap_fill_mode: external)
   1. Wikipedia  — factual/encyclopedic
   2. ArXiv      — scientific/technical papers
   3. DuckDuckGo — general web
@@ -103,13 +111,13 @@ File: 03_indexes/retrieval_protocol.md
 
   ## Step 3 — Tiered Node Read
   For each HIGH candidate:
-    a) Read only lines 1–30 (full YAML block including keywords field). Confirm relevance
-       from summary, tags, AND keywords. Keywords are specific terms; a keyword match
-       upgrades a MEDIUM to HIGH.
+    a) Read only lines 1–30 (full YAML block including keywords and clearance fields).
+       Confirm relevance from summary, tags, AND keywords.
+       A keyword match upgrades a MEDIUM to HIGH.
     b) If confirmed, read the full file. If borderline, skip.
   Read MEDIUM candidates only if HIGH reads leave gaps.
-  Check date_added on each confirmed node. If last_verified is older than 6 months,
-  append a warning in the answer: "(note: this node has not been verified recently)"
+  Check last_verified on each confirmed node. If older than 6 months, append a warning:
+    "(note: this node has not been verified recently)"
 
   ## Step 4 — Connection Traversal (max 2 hops)
   From confirmed nodes, inspect connections: and contradicts: arrays.
@@ -117,25 +125,69 @@ File: 03_indexes/retrieval_protocol.md
   Only follow if the registry row scores HIGH or MEDIUM against the query or HyDE.
   Stop at 2 hops or when the token budget is reached.
 
-  ## Step 5 — External Search (PARTIAL or INSUFFICIENT only)
-  Read source_config.md. If external_search is disabled, report the gap and stop.
-  If enabled:
-    a) Formulate 2 queries: one from raw keywords, one from the HyDE summary.
-    b) Query sources in priority order:
-       Wikipedia : curl -s "https://en.wikipedia.org/api/rest_v1/page/summary/QUERY_TERM"
-       ArXiv     : curl -s "https://export.arxiv.org/api/query?search_query=QUERY&max_results=3"
-       DuckDuckGo: curl -s "https://api.duckduckgo.com/?q=QUERY&format=json&no_html=1"
-    c) Extract key facts. Note the source URL.
-    d) If auto_save_external is enabled AND findings are substantial:
-       - Create a node in 02_nodes/ with type: external, confidence: low,
-         date_added: today, last_verified: today.
-       - Add row to node_registry.md and update cluster_index.md.
+  ## Step 5 — Gap Fill
+  Triggered when confidence is PARTIAL or INSUFFICIENT.
+  Read source_config.md to determine gap_fill_mode.
+
+  ### If gap_fill_mode: none
+  Report the gap clearly. Do not attempt to fill it. Stop here.
+
+  ### If gap_fill_mode: parametric (default)
+  Use your own trained knowledge to supplement the answer.
+  RULES for parametric gap fill:
+    - Clearly label any parametric content: "(from model knowledge, not from your graph)"
+    - Do not present parametric knowledge with the same confidence as graph-sourced knowledge
+    - If the topic is time-sensitive or rapidly evolving, note that training data may be outdated
+    - Do NOT save parametric responses as nodes automatically — ask the user first
+  This mode has zero data leakage risk. No information leaves the local environment.
+
+  ### If gap_fill_mode: external
+  CRITICAL — READ THE FULL SECURITY PROTOCOL BEFORE PROCEEDING.
+
+  SECURITY PROTOCOL — QUERY SANITIZATION (mandatory, non-negotiable):
+
+  Step A — Clearance check:
+    Before formulating any search query, inspect the clearance field of every node
+    consulted in Steps 3 and 4.
+    - If ANY consulted node has clearance: confidential → ABORT external search entirely.
+      Report: "External search blocked — query context includes confidential nodes."
+    - If ANY consulted node has clearance: internal → proceed to Step B (abstraction required).
+    - If all consulted nodes are clearance: public or external → proceed to Step C.
+
+  Step B — Mandatory abstraction for internal-clearance context:
+    You are STRICTLY FORBIDDEN from including any of the following in an external query:
+      - Internal project names, codenames, or initiative titles
+      - Employee names, team names, or organisational unit names
+      - Proprietary system names, product names not yet public
+      - Specific internal financial figures, targets, or metrics
+      - Internal process names, workflow names, or policy titles
+    You MUST abstract every specific to its generic underlying concept before searching.
+    Example: "Project Orion SSO failure rate" → "Single Sign-On implementation failure analysis"
+    Example: "Q3 Helios revenue shortfall" → "revenue forecasting gap analysis techniques"
+    If you cannot abstract a term without losing the meaning of the query, do NOT search externally.
+    Report: "Could not safely abstract query for external search — using parametric gap fill instead."
+    Then fall back to gap_fill_mode: parametric.
+
+  Step C — Execute sanitized external search:
+    Formulate 2 abstracted queries: one from sanitized keywords, one from HyDE summary.
+    Query sources in priority order from source_config.md:
+      Wikipedia : curl -s "https://en.wikipedia.org/api/rest_v1/page/summary/QUERY_TERM"
+      ArXiv     : curl -s "https://export.arxiv.org/api/query?search_query=QUERY&max_results=3"
+      DuckDuckGo: curl -s "https://api.duckduckgo.com/?q=QUERY&format=json&no_html=1"
+    Extract key facts. Note source URLs.
+    If auto_save_external is enabled AND findings are substantial:
+      Create a node in 02_nodes/ with:
+        type: external, clearance: external, confidence: low,
+        date_added: today, last_verified: today
+      Add row to node_registry.md (include clearance: external in the Clearance column).
+      Update cluster_index.md if a new discipline appears.
 
   ## Step 6 — Answer and Log
   Format the response as:
-    Confidence : sufficient | partial | external-supplemented | insufficient
+    Confidence : sufficient | partial | parametric-supplemented | external-supplemented | insufficient
     Answer     : concise, 3–5 sentences unless depth is explicitly requested
-    Sources    : [[Node Names]] consulted + external URLs
+    Sources    : [[Node Names]] consulted (with clearance levels) + external URLs if any
+    Model knowledge used: yes/no — flag clearly if parametric gap fill was applied
     Gaps       : what the graph does not yet cover (omit if none)
 
   After responding, append one row to 03_indexes/query_log.md:
@@ -177,7 +229,7 @@ Index files in 03_indexes/:
   input_manifest.md     — source file tracking
   query_log.md          — append-only query history
   master_index.md       — human-readable table of contents
-  source_config.md      — external search settings
+  source_config.md      — gap-fill mode and external source settings
 
 ---
 
@@ -189,6 +241,11 @@ Every file in 02_nodes/ MUST open with this YAML block:
 title: ""
 type: ""            # research_paper | strategy | codebase | transcript | abstract_concept | dataset | synthesis | external
 discipline: ""      # e.g. Computer Science | Biology | Economics | History | etc.
+clearance: ""       # public | internal | confidential | external
+                    # public       — no restrictions, safe for external search context
+                    # internal     — stay within graph; abstract before any external use
+                    # confidential — never used to inform external queries under any circumstance
+                    # external     — sourced from outside (web, model knowledge); confidence always low
 tags: []            # broad categories
 keywords: []        # specific terms, entities, proper nouns — secondary retrieval signal
 summary: ""         # MANDATORY. One sentence: the single most important claim or finding.
@@ -202,10 +259,34 @@ last_verified: ""   # YYYY-MM-DD — updated when node is confirmed still accura
 ---
 
 Rules:
-- summary and date_added are mandatory on every node.
+- summary, date_added, and clearance are mandatory on every node.
 - keywords are specific terms the summary might not capture (names, acronyms, formulas).
-- confidence: low for any externally sourced node.
+- confidence: low for any node sourced externally or from model knowledge.
+- clearance: external for any node created from web search or parametric gap fill.
+- clearance: confidential nodes are NEVER used to formulate external search queries.
 - Filename must be snake_case of the title.
+
+# Data Privacy Principles (GDPR-inspired)
+
+These principles govern how data in this graph is handled:
+
+1. Data minimisation — extract only what is necessary for the node's purpose.
+   Do not copy verbatim blocks of source text. Extract concepts, not raw content.
+
+2. Purpose limitation — a node's clearance level defines its permitted uses:
+   confidential nodes inform only local queries, never external calls.
+   internal nodes may inform external searches only after full abstraction.
+
+3. Accuracy — nodes must reflect their source. Use last_verified to track staleness.
+   Flag nodes older than 6 months in query responses.
+
+4. Right to erasure — "Sync graph" deletion cascades to all references.
+   No orphaned links or registry rows remain after a node is deleted.
+
+5. No unnecessary external transmission — default gap_fill_mode is parametric.
+   External search requires explicit opt-in in source_config.md.
+   When external search is enabled, the sanitization protocol in
+   retrieval_protocol.md is mandatory and cannot be bypassed.
 
 ---
 
@@ -247,6 +328,12 @@ After reading a file, apply based on content type:
   Transcripts/Notes   : implicit intent, decisions made, unspoken context
   Datasets            : schema, value ranges, anomalies, data shape
 
+Clearance assignment during ingestion:
+  If the source file contains personal identifiers, internal project names, financial figures,
+  or proprietary system names → suggest clearance: confidential or internal to the user.
+  If the source is a public document (published paper, open dataset, public article) → clearance: public.
+  When in doubt, default to clearance: internal and ask the user to confirm.
+
 ---
 
 # Commands
@@ -256,9 +343,10 @@ After reading a file, apply based on content type:
 2. Extract text using the File Reading Protocol.
 3. Write a node in 02_nodes/ per the Node Standard.
    Set date_added and last_verified to today's date.
+   Assign clearance based on the Extraction Protocol guidance. Ask if uncertain.
 4. Scan registry for concept overlaps. Update connections: in both nodes.
    Update contradicts: on both sides if there is a factual conflict.
-5. Add one row to node_registry.md.
+5. Add one row to node_registry.md (include the Clearance column).
 6. Update cluster_index.md: increment count, revise Coverage Summary if scope expands.
    If discipline is new, add a row.
 7. Add a wikilink to master_index.md under the node's discipline heading.
@@ -276,10 +364,14 @@ Use when the question is complex, cross-domain, or requires comprehensive covera
 ## "Synthesize across domains"
 1. Read cluster_index.md. Select 2+ disciplines with tension or complementary principles.
 2. Read retrieval_protocol.md. Run Steps 0–4 in deep mode on the cross-domain question.
-3. Write a report in 04_synthesis/.
-4. Add a node row to node_registry.md (type: synthesis, discipline: Cross-Domain).
-5. Update cluster_index.md Cross-Domain row (or create it).
-6. Add connections: back-links in each source node to the new synthesis file.
+3. Before writing the report, check clearance of all source nodes.
+   Do not include confidential node content verbatim in synthesis output.
+   Summarise at an appropriate abstraction level for the synthesis clearance.
+4. Write a report in 04_synthesis/. Assign clearance: the highest clearance of any source node
+   (e.g. if any source is confidential, the synthesis is also confidential).
+5. Add a node row to node_registry.md (type: synthesis, discipline: Cross-Domain).
+6. Update cluster_index.md Cross-Domain row (or create it).
+7. Add connections: back-links in each source node to the new synthesis file.
 
 ## "Sync graph"
 Detects all changes in 01_raw_inputs/ since the last session.
@@ -301,10 +393,10 @@ Step 3 — UPDATED files
   a) Re-extract content using File Reading Protocol.
   b) Read the existing node. Re-run Extraction Protocol.
   c) Rewrite node body. Preserve filename and YAML except: update summary if core claim
-     changed, set last_verified to today.
+     changed, set last_verified to today. Re-confirm clearance if content changed significantly.
   d) Re-scan registry for connection changes. Add new, remove stale.
   e) Update manifest row: new size, new date.
-  f) Update registry row if summary changed.
+  f) Update registry row if summary or clearance changed.
 
 Step 4 — DELETED files
   a) Read the node listed in the manifest.
@@ -317,11 +409,9 @@ Step 4 — DELETED files
   g) Remove its link from master_index.md.
 
 Step 5 — Broken Link Scan
-  After handling all file changes, scan every node in 02_nodes/.
-  For each [[WikiLink]] in connections: and contradicts:, verify a corresponding
-  .md file exists in 02_nodes/. Collect all broken links.
-  Report: list broken links as "[node file] → [[missing link]]".
-  Do not auto-delete — just report so the user can decide.
+  Scan every node in 02_nodes/. For each [[WikiLink]] in connections: and contradicts:,
+  verify a corresponding .md file exists in 02_nodes/. Collect all broken links.
+  Report: "[node file] → [[missing link]]". Do not auto-delete.
 
 Step 6 — Report
   X new | X updated | X deleted | X unchanged | X broken links found
@@ -337,6 +427,7 @@ Step 6 — Report
 5. Write a resolution note at the bottom of BOTH nodes under a ## Contradiction Resolution heading.
    Include: resolution type, reasoning, date resolved.
 6. If GENUINE, create a synthesis node in 04_synthesis/ documenting the open question.
+   Assign clearance: the highest of the two source nodes.
 7. Update last_verified on both nodes to today.
 
 ## "Compress node: [node name]"
@@ -345,6 +436,13 @@ Step 6 — Report
 3. Rewrite body as max 10-bullet fact list. Remove all prose.
 4. Overwrite the file. Do not change filename or any YAML fields.
 5. Set last_verified to today.
+
+## "Set clearance: [node name] to [level]"
+1. Read the node file.
+2. Update the clearance: field in the YAML block only.
+3. Update the Clearance column in the node's row in node_registry.md.
+4. Confirm the change and note any implications
+   (e.g. "This node is referenced in a synthesis — you may want to review that file's clearance too.").
 
 ---
 
