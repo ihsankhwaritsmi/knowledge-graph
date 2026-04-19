@@ -4,7 +4,7 @@
 
 **A self-organizing, AI-maintained knowledge base that lives entirely on your machine.**
 
-*Inspired by [Andrej Karpathy's LLM Wiki](https://gist.github.com/karpathy) concept.*
+_Inspired by [Andrej Karpathy's LLM Wiki](https://gist.github.com/karpathy) concept._
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Works with Cline](https://img.shields.io/badge/Works%20with-Cline-blueviolet)
@@ -20,7 +20,7 @@
 
 ## What Is This?
 
-Drop any file into a folder. Tell your AI agent to process it. Come back later and ask a question — the agent retrieves the answer from *your own documents*, not from its training data.
+Drop any file into a folder. Tell your AI agent to process it. Come back later and ask a question — the agent retrieves the answer from _your own documents_, not from its training data.
 
 No vector databases. No embedding models. No servers. No API keys for retrieval. Just Markdown files, a rules engine, and an AI agent that builds and queries the graph for you — across sessions, across tools, with full privacy.
 
@@ -45,12 +45,12 @@ No vector databases. No embedding models. No servers. No API keys for retrieval.
 
 No Python packages, npm modules, or servers needed. The system uses tools already present on your OS.
 
-| Dependency | Platform | Purpose | How to check |
-|---|---|---|---|
-| **Python 3** | All | `Sync graph` scripted diff | `python --version` |
-| **PowerShell 5.0+** | Windows only | Read `.docx`, `.xlsx`; get file sizes | `$PSVersionTable.PSVersion` |
-| **poppler-utils** (`pdftotext`) | Linux/Mac fallback | PDF text extraction if native read fails | `pdftotext -v` |
-| **unzip** | Linux/Mac | Read `.docx` / `.xlsx` XML | `unzip -v` |
+| Dependency                      | Platform           | Purpose                                  | How to check                |
+| ------------------------------- | ------------------ | ---------------------------------------- | --------------------------- |
+| **Python 3**                    | All                | `Sync graph` scripted diff               | `python --version`          |
+| **PowerShell 5.0+**             | Windows only       | Read `.docx`, `.xlsx`; get file sizes    | `$PSVersionTable.PSVersion` |
+| **poppler-utils** (`pdftotext`) | Linux/Mac fallback | PDF text extraction if native read fails | `pdftotext -v`              |
+| **unzip**                       | Linux/Mac          | Read `.docx` / `.xlsx` XML               | `unzip -v`                  |
 
 > **Windows users:** PowerShell ships with Windows 10/11 — no action needed.
 > **Linux/Mac users:** `sudo apt install poppler-utils` or `brew install poppler` for PDF fallback.
@@ -63,8 +63,8 @@ No Python packages, npm modules, or servers needed. The system uses tools alread
 **Prerequisites:** [Cline](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev) (VS Code) or [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (CLI), with any LLM API key configured.
 
 ```bash
-git clone <your-repo-url>
-cd <your-repo-folder>
+git clone https://github.com/ihsankhwaritsmi/knowledge-graph
+cd knowledge-graph
 ```
 
 Then, in your agent's chat panel, run:
@@ -144,15 +144,15 @@ Extraction Protocol               Scientific · Strategic · Code · Transcripts
 
 Retrieval logic lives in `03_indexes/retrieval_protocol.md` and loads **on demand** — the rules file stays lean for every non-query session.
 
-| Step | What happens | Cost |
-|---|---|---|
-| **0 — HyDE** | Generates a hypothetical ideal-answer summary as a second match signal | 0 file reads |
-| **1 — Cluster filter** | Narrows to 1–3 disciplines via `cluster_index.md` | 1 file read |
-| **2 — Registry scan** | `grep` pre-scan first (zero token cost), then score matched rows; assesses confidence | 1 file read |
-| **3 — Tiered read** | YAML block (30 lines) first; full file only if confirmed relevant | Up to 8 or 15 |
-| **4 — Traversal** | Follows `connections:` / `contradicts:` up to 2 hops | Within budget |
-| **5 — Gap fill** | Parametric (default) or sanitized external search (opt-in) | 0–3 curl calls |
-| **6 — Answer + log** | Structured response; appends row to `query_log.md` | — |
+| Step                   | What happens                                                                          | Cost           |
+| ---------------------- | ------------------------------------------------------------------------------------- | -------------- |
+| **0 — HyDE**           | Generates a hypothetical ideal-answer summary as a second match signal                | 0 file reads   |
+| **1 — Cluster filter** | Narrows to 1–3 disciplines via `cluster_index.md`                                     | 1 file read    |
+| **2 — Registry scan**  | `grep` pre-scan first (zero token cost), then score matched rows; assesses confidence | 1 file read    |
+| **3 — Tiered read**    | YAML block (30 lines) first; full file only if confirmed relevant                     | Up to 8 or 15  |
+| **4 — Traversal**      | Follows `connections:` / `contradicts:` up to 2 hops                                  | Within budget  |
+| **5 — Gap fill**       | Parametric (default) or sanitized external search (opt-in)                            | 0–3 curl calls |
+| **6 — Answer + log**   | Structured response; appends row to `query_log.md`                                    | —              |
 
 Confidence is assessed after Step 2 and determines the path:
 
@@ -166,21 +166,21 @@ Confidence is assessed after Step 2 and determines the path:
 
 ## Commands
 
-| Command | What it does |
-|---|---|
-| `Process new data` | Ingest files from `01_raw_inputs/`, create nodes, update all indexes |
-| `Query the graph: [question]` | Retrieve and reason — up to 8 nodes, gap-fill if needed |
-| `Query the graph [deep]: [question]` | Same, up to 15 nodes — use for complex cross-domain questions |
-| `Synthesize across domains` | Cross-discipline report; inherits highest source clearance |
-| `Sync graph` | Scripted Python diff vs manifest — handles new, updated, deleted, broken links |
-| `Lint graph` | Check all nodes for broken YAML, malformed table rows, and orphaned WikiLinks |
-| `Resolve contradiction: [A] vs [B]` | Read both nodes, classify conflict, write resolution |
-| `Search external: [topic]` | Force web search (requires `gap_fill_mode: external` in config) |
-| `Compress node: [name]` | Rewrite node body as 10-bullet list; YAML untouched |
-| `Set clearance: [name] to [level]` | Update node clearance; flags affected synthesis reports |
-| `Merge nodes: [A] into [B]` | Combine two duplicate/overlapping nodes; cascades all cross-references |
-| `List nodes` | Compact table of all nodes grouped by discipline — no node files read |
-| `Show graph summary` | Health snapshot: node counts, coverage gaps, stale nodes, top queries |
+| Command                              | What it does                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------ |
+| `Process new data`                   | Ingest files from `01_raw_inputs/`, create nodes, update all indexes           |
+| `Query the graph: [question]`        | Retrieve and reason — up to 8 nodes, gap-fill if needed                        |
+| `Query the graph [deep]: [question]` | Same, up to 15 nodes — use for complex cross-domain questions                  |
+| `Synthesize across domains`          | Cross-discipline report; inherits highest source clearance                     |
+| `Sync graph`                         | Scripted Python diff vs manifest — handles new, updated, deleted, broken links |
+| `Lint graph`                         | Check all nodes for broken YAML, malformed table rows, and orphaned WikiLinks  |
+| `Resolve contradiction: [A] vs [B]`  | Read both nodes, classify conflict, write resolution                           |
+| `Search external: [topic]`           | Force web search (requires `gap_fill_mode: external` in config)                |
+| `Compress node: [name]`              | Rewrite node body as 10-bullet list; YAML untouched                            |
+| `Set clearance: [name] to [level]`   | Update node clearance; flags affected synthesis reports                        |
+| `Merge nodes: [A] into [B]`          | Combine two duplicate/overlapping nodes; cascades all cross-references         |
+| `List nodes`                         | Compact table of all nodes grouped by discipline — no node files read          |
+| `Show graph summary`                 | Health snapshot: node counts, coverage gaps, stale nodes, top queries          |
 
 ---
 
@@ -216,19 +216,19 @@ Every node in `02_nodes/` is a Markdown file with a typed YAML header:
 ```yaml
 ---
 title: ""
-type: ""            # research_paper | strategy | codebase | transcript | abstract_concept | dataset | synthesis | external
+type: "" # research_paper | strategy | codebase | transcript | abstract_concept | dataset | synthesis | external
 discipline: ""
-clearance: ""       # public | internal | confidential | external
+clearance: "" # public | internal | confidential | external
 tags: []
-keywords: []        # specific terms and entities — secondary retrieval signal
-summary: ""         # ONE sentence — mandatory, primary retrieval signal
+keywords: [] # specific terms and entities — secondary retrieval signal
+summary: "" # ONE sentence — mandatory, primary retrieval signal
 assumptions: []
-connections: []     # [[WikiLink]] format
-contradicts: []     # [[WikiLink]] format
+connections: [] # [[WikiLink]] format
+contradicts: [] # [[WikiLink]] format
 source: ""
-confidence: ""      # high | medium | low
-date_added: ""      # set once, never changed
-last_verified: ""   # updated on sync, compress, or resolve
+confidence: "" # high | medium | low
+date_added: "" # set once, never changed
+last_verified: "" # updated on sync, compress, or resolve
 ---
 ```
 
@@ -238,12 +238,12 @@ last_verified: ""   # updated on sync, compress, or resolve
 
 ### Clearance Levels
 
-| Level | Meaning | External search |
-|---|---|---|
-| `public` | No restrictions | ✅ Safe to use directly |
-| `internal` | Stays within the graph | ⚠️ Must be abstracted first |
-| `confidential` | Sensitive content | ❌ Blocks external search entirely |
-| `external` | Sourced from outside | Always `confidence: low` |
+| Level          | Meaning                | External search                    |
+| -------------- | ---------------------- | ---------------------------------- |
+| `public`       | No restrictions        | ✅ Safe to use directly            |
+| `internal`     | Stays within the graph | ⚠️ Must be abstracted first        |
+| `confidential` | Sensitive content      | ❌ Blocks external search entirely |
+| `external`     | Sourced from outside   | Always `confidence: low`           |
 
 Synthesis reports automatically inherit the **highest** clearance of any source node.
 
@@ -251,11 +251,11 @@ Synthesis reports automatically inherit the **highest** clearance of any source 
 
 Set in `03_indexes/source_config.md`:
 
-| Mode | Behaviour | Data leaves machine? |
-|---|---|---|
-| `parametric` *(default)* | Model answers from trained knowledge | ❌ Never |
-| `external` | Searches open-access sources + any enabled institutional sources | ⚠️ Yes — sanitized |
-| `none` | Reports the gap only | ❌ Never |
+| Mode                     | Behaviour                                                        | Data leaves machine? |
+| ------------------------ | ---------------------------------------------------------------- | -------------------- |
+| `parametric` _(default)_ | Model answers from trained knowledge                             | ❌ Never             |
+| `external`               | Searches open-access sources + any enabled institutional sources | ⚠️ Yes — sanitized   |
+| `none`                   | Reports the gap only                                             | ❌ Never             |
 
 ### External Search Sources
 
@@ -263,22 +263,22 @@ When `gap_fill_mode: external`, the agent queries sources in priority order. Ope
 
 **Open-access (always available):**
 
-| Source | Coverage | API |
-|---|---|---|
-| Wikipedia | Encyclopedic / factual | Free, no key |
-| ArXiv | CS, physics, math, biology preprints | Free, no key |
-| PubMed | Biomedical and life sciences | Free, no key |
-| Semantic Scholar | Cross-discipline academic search | Free, no key |
-| DuckDuckGo | General web | Free, no key |
+| Source           | Coverage                             | API          |
+| ---------------- | ------------------------------------ | ------------ |
+| Wikipedia        | Encyclopedic / factual               | Free, no key |
+| ArXiv            | CS, physics, math, biology preprints | Free, no key |
+| PubMed           | Biomedical and life sciences         | Free, no key |
+| Semantic Scholar | Cross-discipline academic search     | Free, no key |
+| DuckDuckGo       | General web                          | Free, no key |
 
 **Institutional (uncomment in `source_config.md` when you have access):**
 
-| Source | Coverage | Access |
-|---|---|---|
-| IEEE Xplore | Engineering, electronics, computer science | API key or institutional VPN |
-| Elsevier / ScienceDirect | Broad sciences | API key or institutional VPN |
-| MDPI | Open-access multidisciplinary journals | API key or institutional VPN |
-| Springer | Broad sciences and engineering | API key or institutional VPN |
+| Source                   | Coverage                                   | Access                       |
+| ------------------------ | ------------------------------------------ | ---------------------------- |
+| IEEE Xplore              | Engineering, electronics, computer science | API key or institutional VPN |
+| Elsevier / ScienceDirect | Broad sciences                             | API key or institutional VPN |
+| MDPI                     | Open-access multidisciplinary journals     | API key or institutional VPN |
+| Springer                 | Broad sciences and engineering             | API key or institutional VPN |
 
 > **VPN tip:** If your institution provides VPN access, connecting before running a query unlocks paywalled full-text on IEEE, Elsevier, and Springer without needing a personal API key. Tell the agent `"I'm on my institution VPN"` and it will attempt institutional sources before falling back to DuckDuckGo.
 
@@ -294,28 +294,28 @@ When `external` mode is enabled, every search query goes through three gates bef
 
 ### GDPR-Inspired Principles
 
-| Principle | How it's applied |
-|---|---|
-| **Data minimisation** | Extract concepts, not verbatim source text |
-| **Purpose limitation** | Clearance level governs what each node can be used for |
-| **Accuracy** | `last_verified` tracks staleness; nodes older than 6 months are flagged |
-| **Right to erasure** | Deletion cascades to all references — no orphaned links or registry rows |
-| **No unnecessary external transmission** | `parametric` is the default; `external` requires explicit opt-in |
+| Principle                                | How it's applied                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------ |
+| **Data minimisation**                    | Extract concepts, not verbatim source text                               |
+| **Purpose limitation**                   | Clearance level governs what each node can be used for                   |
+| **Accuracy**                             | `last_verified` tracks staleness; nodes older than 6 months are flagged  |
+| **Right to erasure**                     | Deletion cascades to all references — no orphaned links or registry rows |
+| **No unnecessary external transmission** | `parametric` is the default; `external` requires explicit opt-in         |
 
 ---
 
 ## vs. Karpathy's Original LLM Wiki
 
-| | Karpathy's LLM Wiki | This system |
-|---|---|---|
-| Note creation | You write manually | Agent extracts automatically |
-| Structure | Freeform Markdown | Typed YAML schema |
-| Graph | None | Bidirectional links + contradiction tracking |
-| Retrieval | Ad-hoc | 7-step protocol with HyDE and cluster pre-filter |
-| Scale | Degrades | Flat cost via cluster index |
-| Gap fill | None | Parametric (default) or sanitized external |
-| Privacy | None | Clearance levels + query sanitization |
-| Sync | Manual | Diff-based auto-sync |
+|               | Karpathy's LLM Wiki | This system                                      |
+| ------------- | ------------------- | ------------------------------------------------ |
+| Note creation | You write manually  | Agent extracts automatically                     |
+| Structure     | Freeform Markdown   | Typed YAML schema                                |
+| Graph         | None                | Bidirectional links + contradiction tracking     |
+| Retrieval     | Ad-hoc              | 7-step protocol with HyDE and cluster pre-filter |
+| Scale         | Degrades            | Flat cost via cluster index                      |
+| Gap fill      | None                | Parametric (default) or sanitized external       |
+| Privacy       | None                | Clearance levels + query sanitization            |
+| Sync          | Manual              | Diff-based auto-sync                             |
 
 ---
 
