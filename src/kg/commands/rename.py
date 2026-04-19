@@ -1,14 +1,13 @@
 from pathlib import Path
 
 import typer
-from rich.console import Console
+from ..console import console
 
 from ..engine import manifest, registry
 from ..engine.atomic import atomic_write
 from ..engine.nodes import replace_wikilink, all_nodes
 from ..engine.workspace import require_workspace
 
-console = Console()
 
 
 def run(

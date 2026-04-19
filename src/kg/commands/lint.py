@@ -1,13 +1,12 @@
 from pathlib import Path
 
 import typer
+from ..console import console
 import yaml
-from rich.console import Console
 
 from ..engine import nodes
 from ..engine.workspace import require_workspace
 
-console = Console()
 
 _MANDATORY_FIELDS = ("summary", "date_added", "clearance")
 

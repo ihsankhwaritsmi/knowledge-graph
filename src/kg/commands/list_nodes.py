@@ -2,13 +2,12 @@ from collections import defaultdict
 from pathlib import Path
 
 import typer
-from rich.console import Console
+from ..console import console
 from rich.table import Table
 
 from ..engine import registry
 from ..engine.workspace import require_workspace
 
-console = Console()
 
 _CLEARANCE_COLOR = {
     "public": "green",

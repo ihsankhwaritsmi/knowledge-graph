@@ -4,14 +4,13 @@ from pathlib import Path
 import re
 
 import typer
+from ..console import console
 import yaml
-from rich.console import Console
 from rich.table import Table
 
 from ..engine import nodes, registry
 from ..engine.workspace import require_workspace
 
-console = Console()
 _STALE_DAYS = 180
 
 

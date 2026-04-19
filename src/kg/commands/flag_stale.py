@@ -3,14 +3,13 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import typer
+from ..console import console
 import yaml
-from rich.console import Console
 from rich.table import Table
 
 from ..engine import nodes
 from ..engine.workspace import require_workspace
 
-console = Console()
 
 _STALE_DAYS = 180
 _AGING_DAYS = 90

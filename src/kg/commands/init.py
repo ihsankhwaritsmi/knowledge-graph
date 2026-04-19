@@ -1,11 +1,10 @@
 from pathlib import Path
 
 import typer
-from rich.console import Console
+from ..console import console
 
 from ..engine.workspace import DIRS
 
-console = Console()
 
 _INDEX_TEMPLATES: dict[str, str] = {
     "03_indexes/master_index.md": (

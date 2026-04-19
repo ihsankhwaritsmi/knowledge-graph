@@ -2,14 +2,13 @@ from datetime import date
 from pathlib import Path
 
 import typer
-from rich.console import Console
+from ..console import console
 from rich.table import Table
 
 from ..engine import manifest, registry, nodes
 from ..engine.hashing import sha256
 from ..engine.workspace import require_workspace
 
-console = Console()
 
 
 def _cascade_delete(workspace: Path, node_filename: str) -> int:

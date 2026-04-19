@@ -2,12 +2,11 @@ from datetime import date
 from pathlib import Path
 
 import typer
-from rich.console import Console
+from ..console import console
 
 from ..engine.nodes import update_field
 from ..engine.workspace import require_workspace
 
-console = Console()
 
 
 def _resolve_node(workspace: Path, name: str) -> Path | None:
