@@ -24,6 +24,3 @@ Repository = "https://github.com/ihsankhwaritsmi/knowledge-graph"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/genesise"]
-
-[tool.hatch.build.targets.wheel.shared-data]
-"src/genesise/templates" = "genesise/templates"

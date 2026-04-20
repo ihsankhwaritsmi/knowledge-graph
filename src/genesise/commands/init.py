@@ -5,6 +5,8 @@ from ..console import console
 
 from ..engine.workspace import DIRS
 
+_TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
+
 
 _INDEX_TEMPLATES: dict[str, str] = {
     "03_indexes/master_index.md": (
@@ -93,6 +95,15 @@ def run(
         else:
             fp.write_text(content, encoding="utf-8")
             created_files.append(fname)
+
+    bootstrap_src = _TEMPLATES_DIR / "bootstrap.md"
+    bootstrap_dst = target / "bootstrap.md"
+    if bootstrap_src.exists():
+        if bootstrap_dst.exists() and not force:
+            skipped_files.append("bootstrap.md")
+        else:
+            bootstrap_dst.write_text(bootstrap_src.read_text(encoding="utf-8"), encoding="utf-8")
+            created_files.append("bootstrap.md")
 
     console.print()
     console.print("[bold green]✓ Workspace ready[/bold green]", highlight=False)
