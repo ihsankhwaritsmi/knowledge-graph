@@ -99,7 +99,7 @@ def run(
     unknown_n = len(buckets["UNKNOWN"])
     if stale_n or unknown_n:
         console.print(
-            f"[bold]Recommendation:[/bold] run [cyan]`kg verify <node>`[/cyan] after confirming "
+            f"[bold]Recommendation:[/bold] run [cyan]`gns verify <node>`[/cyan] after confirming "
             f"each stale node is still accurate."
         )
     else:

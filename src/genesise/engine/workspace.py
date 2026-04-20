@@ -20,6 +20,6 @@ def find_workspace(start: Path | None = None) -> Path | None:
 def require_workspace() -> Path:
     ws = find_workspace()
     if ws is None:
-        typer.echo("Error: not inside a kg workspace. Run `kg init` first.", err=True)
+        typer.echo("Error: not inside a genesise workspace. Run `gns init` first.", err=True)
         raise typer.Exit(1)
     return ws

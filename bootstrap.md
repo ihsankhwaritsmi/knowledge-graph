@@ -445,8 +445,7 @@ Step 1 — Run the CLI (handles diff, deletions, and broken-link scan determinis
   master_index links, and decrements cluster counts) and reports broken WikiLinks.
   Read the output — it tells you exactly which files need agent action.
 
-  If kg is not installed, fall back to the manual scripted diff described in the
-  project's git history or re-run bootstrap to reinstall.
+  If gns is not installed, run `pip install genesise` to reinstall it.
 
 Step 2 — NEW files
   Run "Process new data" for each file listed as NEW.

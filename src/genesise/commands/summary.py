@@ -20,7 +20,7 @@ def run() -> None:
     reg = registry.read(workspace)
 
     if not reg:
-        console.print("[dim]Graph is empty. Run `kg init` then tell your agent: Process new data.[/dim]")
+        console.print("[dim]Graph is empty. Run `gns init` then tell your agent: Process new data.[/dim]")
         return
 
     # --- counts ---
@@ -104,7 +104,7 @@ def run() -> None:
 
     # staleness
     if stale_nodes:
-        console.print(f"[yellow]⚠ {len(stale_nodes)} stale node(s)[/yellow] (not verified in 6+ months) — run [cyan]`kg flag-stale`[/cyan]")
+        console.print(f"[yellow]⚠ {len(stale_nodes)} stale node(s)[/yellow] (not verified in 6+ months) — run [cyan]`gns flag-stale`[/cyan]")
     else:
         console.print("[green]✓ No stale nodes[/green]")
     console.print()

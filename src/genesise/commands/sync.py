@@ -152,6 +152,6 @@ def run(
 
     if broken:
         console.print()
-        console.print(f"  [red]⚠ {len(broken)} broken link(s) — run `kg lint` for details[/red]")
+        console.print(f"  [red]⚠ {len(broken)} broken link(s) — run `gns lint` for details[/red]")
 
     console.print()

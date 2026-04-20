@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import typer
@@ -37,7 +38,6 @@ def run(
 
     # --- 1. update title field in YAML and write as new filename ---
     text = old_path.read_text(encoding="utf-8")
-    import re
     text = re.sub(
         r'^(title:\s*)(.*)$',
         lambda m: m.group(1) + new_stem.replace("_", " ").title(),

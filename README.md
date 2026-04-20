@@ -56,63 +56,76 @@ No vector databases. No embedding models. No servers. No API keys for retrieval.
 
 ---
 
+## How the Two Parts Work Together
+
+Genesise has two halves that do different jobs:
+
+| | `gns` CLI (pip package) | Agent (LLM) |
+| --- | --- | --- |
+| **Does** | Fast, deterministic file operations — sync, lint, rename, list, verify | Reasoning — ingestion, querying, synthesis, contradiction resolution |
+| **Needs** | Python 3.11+ | Cline or Claude Code with an API key |
+| **Triggered by** | You, in the terminal | You, in the chat panel |
+
+Neither half alone is enough. The CLI has no LLM — it can't read a PDF and extract concepts. The agent has no persistence layer — without the CLI it can't reliably detect file changes or cascade renames across the graph. They're designed to run alongside each other.
+
+---
+
 ## Quick Start
 
 **Prerequisites:** [Cline](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev) (VS Code) or [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (CLI), with any LLM API key configured.
 
-```bash
-# 1. Install the CLI
-pip install genesise
+**Step 1 — Install the CLI and scaffold your workspace:**
 
-# 2. Create and enter your knowledge base directory
+```bash
+pip install genesise
 mkdir my-knowledge-base
 cd my-knowledge-base
-
-# 3. Initialize the workspace
 gns init
 ```
 
-`gns init` creates the folder structure, index files, and writes `bootstrap.md` into the directory. No cloning required.
+`gns init` creates all folders, index files, and writes `bootstrap.md` into the directory.
 
-Then, in your agent's chat panel, run:
+**Step 2 — Give the agent its rules:**
+
+In your agent's chat panel:
 
 ```
 Read bootstrap.md and execute Phase 2 and Phase 3.
 ```
 
-The agent generates the rules engine (`CLAUDE.md` / `.clinerules`) and confirms when ready.
+The agent generates `CLAUDE.md` / `.clinerules` — its operating rules for this workspace — and confirms when ready. This is a one-time step per workspace.
+
+After this, the agent knows how to ingest files, run queries, and maintain the graph. The CLI handles everything that doesn't need reasoning.
 
 > **Already initialized?** Re-running `gns init` is safe — it skips existing folders and index files. Re-running bootstrap Phase 2/3 regenerates only the rules files.
 
-**First time — ingest your files:**
+**Step 3 — Ingest your files:**
 
 ```
-# 1. Drop files into 01_raw_inputs/ — anything goes (PDF, Word, Excel, images, CSV, code, text)
+# 1. Drop files into 01_raw_inputs/
+#    Anything goes: PDF, Word, Excel, images, CSV, code, plain text
 
 # 2. Tell your agent
 Process new data
 
 # 3. Ask questions
 Query the graph: What are the key assumptions in the papers I uploaded?
-Query the graph [deep]: What connections exist between my research notes and the dataset analysis?
+Query the graph [deep]: What connections exist between my research notes and the dataset?
 ```
 
 **Adding or updating files later:**
 
 ```bash
-# 1. Drop new or updated files into 01_raw_inputs/ alongside existing ones
+# 1. Drop new or updated files into 01_raw_inputs/
 
-# 2. Run sync — detects changes, handles deletions, reports what needs agent attention
+# 2. Run sync in the terminal — fast, no LLM needed
 gns sync
 
-# 3. If gns sync reports NEW or UPDATED files, tell your agent
+# 3. If sync reports NEW or UPDATED files, tell your agent
 Process new data
-
-# 4. Keep querying as normal
-Query the graph: How does the new paper relate to my earlier research notes?
 ```
 
-> `gns sync` uses SHA-256 hashing to detect changes — it never re-processes unchanged files, and it fully cascades deletions (removes cross-references, registry rows, and master index links) without needing the LLM.
+> `gns sync` uses SHA-256 hashing — it never re-processes unchanged files and fully cascades deletions without touching the LLM.
 
 ---
 
@@ -350,7 +363,44 @@ Arguments:
 5. Updates the link in `master_index.md`
 6. Deletes the old `.md` file
 
+**Guards:** aborts with an error if `OLD_NAME` does not exist, or if `NEW_NAME` already exists — use `Merge nodes` in your agent to consolidate two existing nodes instead.
+
 **Output:** confirmation with old → new filename and count of cross-references updated.
+
+---
+
+### `gns gap-fill [MODE]`
+
+View or set the gap-fill mode — controls what the agent does when the local graph doesn't have enough information to answer a query.
+
+```
+gns gap-fill [MODE]
+
+Arguments:
+  MODE    Optional. One of: parametric | external | none.
+          Omit to display the current setting.
+```
+
+**Modes:**
+
+| Mode | Behaviour | Data leaves machine? |
+| --- | --- | --- |
+| `parametric` _(default)_ | Agent answers from its trained knowledge | Never |
+| `external` | Agent searches the web (sanitized before leaving machine) | Yes — sanitized |
+| `none` | Agent reports the gap and stops | Never |
+
+**Examples:**
+
+```bash
+gns gap-fill              # show current mode
+gns gap-fill external     # enable web search
+gns gap-fill parametric   # revert to model-only (default)
+gns gap-fill none         # disable gap-fill entirely
+```
+
+The mode is stored in `03_indexes/source_config.md` and read by the agent on every query. Changing it here takes effect immediately on the next query — no agent restart needed.
+
+> **Security note:** setting `external` does not bypass clearance checks. Nodes tagged `confidential` always block external search regardless of this setting.
 
 ---
 
@@ -386,7 +436,7 @@ Tell these phrases to your agent in the chat panel. They require the LLM and fol
 | `Query the graph [deep]: [question]` | Same, up to 15 nodes — use for complex cross-domain questions |
 | `Synthesize across domains` | Cross-discipline report; inherits highest source clearance |
 | `Resolve contradiction: [A] vs [B]` | Read both nodes, classify conflict, write resolution |
-| `Search external: [topic]` | Force web search (requires `gap_fill_mode: external` in `source_config.md`) |
+| `Search external: [topic]` | Force web search (requires `gap_fill_mode: external` — set with `gns gap-fill external`) |
 | `Compress node: [name]` | Rewrite node body as 10-bullet list; YAML frontmatter untouched |
 | `Set clearance: [name] to [level]` | Update node clearance; flags affected synthesis reports |
 | `Merge nodes: [A] into [B]` | Combine two duplicate/overlapping nodes; cascades all cross-references |
@@ -418,7 +468,8 @@ Tell these phrases to your agent in the chat panel. They require the LLM and fol
 │       ├── flag_stale.py
 │       ├── verify.py
 │       ├── rename.py
-│       └── summary.py
+│       ├── summary.py
+│       └── gap_fill.py
 ├── 01_raw_inputs/              ← drop your files here (gitignored)
 ├── 02_nodes/                   ← generated knowledge nodes (gitignored)
 ├── 03_indexes/                 ← retrieval indexes and config (gitignored)
